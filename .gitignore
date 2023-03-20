@@ -1,0 +1,12 @@
+auto-save-list
+transient
+elpa
+projectile-bookmarks.eld
+.cache
+.last-package-update-day
+.lsp-session-v1
+eshell
+etc
+forge-database.sqlite
+var
+*~
