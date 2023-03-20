@@ -243,7 +243,7 @@
   ;; Enable traditional ligature support in eww-mode, if the `variable-pitch` face supports it
   (ligature-set-ligatures 'eww-mode '("ff" "fi" "ffi"))
   ;; Enable ligatures in programming modes
-  (ligature-set-ligatures 'prog-mode 
+  (ligature-set-ligatures 'prog-mode
                           '("www" "**" "***" "**/" "*>" "*/" "\\\\" "\\\\\\" "{-" "::"
                             ":::" ":=" "!!" "!=" "!==" "-}" "----" "-->" "->" "->>"
                              "-<" "-<<" "-~" "#{" "#[" "##" "###" "####" "#(" "#?" "#_"
@@ -393,7 +393,7 @@
 					  counsel-projectile-find-file
 					  counsel-projectile-find-dir)))
 
-(global-hl-line-mode t) 
+(global-hl-line-mode t)
 
 (use-package doom-themes
   :config
