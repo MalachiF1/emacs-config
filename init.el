@@ -642,43 +642,6 @@
   :config
   (global-page-break-lines-mode))
 
-(defun malachi/org-font-setup ()
-  ;; Replace list hyphen with dot
-  (font-lock-add-keywords 'org-mode
-                          '(("^ *\\([-]\\) "
-                             (0 (prog1 () (compose-region (match-beginning 1) (match-end 1) "•"))))))
-
-  ;; Set faces for heading levels
-  (dolist (face '((org-level-1 . 1.2)
-                  (org-level-2 . 1.1)
-                  (org-level-3 . 1.05)
-                  (org-level-4 . 1.0)
-                  (org-level-5 . 1.1)
-                  (org-level-6 . 1.1)
-                  (org-level-7 . 1.1)
-                  (org-level-8 . 1.1)))
-    (set-face-attribute (car face) nil :font "Cantarell" :weight 'bold :height (cdr face)))
-
-  ;; Make sure org-indent face is available
-  (require 'org-indent)
-
-  ;; Ensure that anything that should be fixed-pitch in Org files appears that way
-  (set-face-attribute 'org-block nil    :foreground nil :inherit 'fixed-pitch)
-  (set-face-attribute 'org-table nil    :inherit 'fixed-pitch)
-  (set-face-attribute 'org-formula nil  :inherit 'fixed-pitch)
-  (set-face-attribute 'org-code nil     :inherit '(shadow fixed-pitch))
-  (set-face-attribute 'org-table nil    :inherit '(shadow fixed-pitch))
-  (set-face-attribute 'org-verbatim nil :inherit '(shadow fixed-pitch))
-  (set-face-attribute 'org-special-keyword nil :inherit '(font-lock-comment-face fixed-pitch))
-  (set-face-attribute 'org-meta-line nil :inherit '(font-lock-comment-face fixed-pitch))
-  (set-face-attribute 'org-checkbox nil  :inherit 'fixed-pitch)
-  (set-face-attribute 'line-number nil :inherit 'fixed-pitch)
-  (set-face-attribute 'line-number-current-line nil :inherit 'fixed-pitch)
-
-  ;; Get rid of the background on column views
-  (set-face-attribute 'org-column nil :background nil)
-  (set-face-attribute 'org-column-title nil :background nil))
-
 (defun malachi/org-mode-setup ()
   (org-indent-mode)
   (variable-pitch-mode 1)
@@ -701,24 +664,102 @@
         org-src-preserve-indentation nil
         org-startup-folded 'content
         org-cycle-separator-lines 2
+        org-return-follows-links t
+        org-deadline-warning-days 30
+        ;org-agenda-tags-column 75
         org-capture-bookmark nil)
 
   (setq org-agenda-start-with-log-mode t)
+  (setq org-agenda-start-on-weekday 0)
+  (setq org-agenda-weekend-days '(5 6))
   (setq org-log-done 'time)
   (setq org-log-into-drawer t)
-  (setq org-todo-keYwords
-        '((sequence "TODO(t)" "NEXT(n)" "|" "DONE(d!)")
-          (sequence "BACKLOG(b)" "PLAN(p)" "READY(r)" "ACTIVE(a)" "REVIEW(v)" "WAIT(w@/!)" "HOLD(h)" "|" "COMPLETED(c)" "CANC(w@)")))
+  (setq org-todo-keywords
+            '((sequence "TODO(t)" "NEXT(n)" "|" "DONE(d!)")
+              (sequence "BACKLOG(b)" "PLAN(p)" "READY(r)" "ACTIVE(a)" "REVIEW(v)" "WAITING(w@/!)" "HOLD(h)" "|" "COMPLETED(c)" "CANCELLED(w@)")))
 
-  (setq org-agenda-files '("~/.emacs.d/OrgFiles/Tasks.org"))
+  (setq org-agenda-files '("~/.emacs.d/orgfiles/inbox.org"
+                           "~/.emacs.d/orgfiles/projects.org"
+                           "~/.emacs.d/orgfiles/repeaters.org"))
 
-  (malachi/org-font-setup))
+  (setq org-capture-templates '(("t" "TODO" entry
+                                     (file+headline "~/.emacs.d/orgfiles/inbox.org" "Tasks")
+                                     "* TODO %?\n  %i\n  %a")))
+  (setq org-agenda-custom-commands
+  '((" " "Agenda"
+     ((agenda ""
+              ((org-agenda-span 'week)))
+      (todo "TODO"
+             ((org-agenda-overriding-header "Unscheduled tasks")
+              (org-agenda-files '("~/.emacs.d/orgfiles/inbox.org"))
+              (org-agenda-skip-function '(org-agenda-skip-entry-if 'scheduled 'deadline))))
+      (todo "TODO"
+             ((org-agenda-overriding-header "Unscheduled project tasks")
+              (org-agenda-files '("~/.emacs.d/orgfiles/projects.org"))
+              (org-agenda-skip-function '(org-agenda-skip-entry-if 'scheduled 'deadline))))))))
+
+  ;; Save all org buffers when a deadline/schedule/node/todo is changed.
+  (defmacro func-ignore (fnc)
+    "Return function that ignores its arguments and invokes FNC"
+    '(lambda (&rest _rest)
+       (funcall , fnc)))
+
+  (advice-add 'org-deadline       :after (func-ignore #'org-save-all-org-buffers))
+  (advice-add 'org-schedule       :after (func-ignore #'org-save-all-org-buffers))
+  (advice-add 'org-store-log-note :after (func-ignore #'org-save-all-org-buffers))
+  (advice-add 'org-todo           :after (func-ignore #'org-save-all-org-buffers)))
+
+(use-package org-superstar
+  :after org
+  :hook (org-mode . org-superstar-mode)
+  :custom
+  (org-superstar-remove-leading-stars t)
+  ;(org-superstar-special-todo-items 'hide)
+  (org-superstar-special-todo-items '(("TODO" . 9744)     ; ☐
+                                      ("DONE" . 9745)))   ; ☑
+  (org-superstar-item-bullet-alist '((42 . 10032)  ; -    ; ▸
+                                     (43 . 8226)   ; +    ; •
+                                     (45 . 9656))) ; *    ; ✰
+  (org-superstar-headline-bullets-list '("◉" "○" "●" "✸" "✦" "▷" "✿")))
+
+(with-eval-after-load 'org
+  ;; Set the size of various headings
+  (set-face-attribute 'org-document-title nil :font "Cantarell" :weight 'bold :height 1.3)
+  (dolist (face '((org-level-1 . 1.2)
+                  (org-level-2 . 1.1)
+                  (org-level-3 . 1.05)
+                  (org-level-4 . 1.0)
+                  (org-level-5 . 1.1)
+                  (org-level-6 . 1.1)
+                  (org-level-7 . 1.1)
+                  (org-level-8 . 1.1)))
+    (set-face-attribute (car face) nil :font "Cantarell" :weight 'medium :height (cdr face)))
+
+  ;; Make sure org-indent face is available
+  (require 'org-indent)
+
+  ;; Ensure that anything that should be fixed-pitch in Org files appears that way
+  (set-face-attribute 'org-block nil    :foreground nil :inherit 'fixed-pitch)
+  (set-face-attribute 'org-table nil    :inherit 'fixed-pitch)
+  (set-face-attribute 'org-formula nil  :inherit 'fixed-pitch)
+  (set-face-attribute 'org-code nil     :inherit '(shadow fixed-pitch))
+  (set-face-attribute 'org-table nil    :inherit '(shadow fixed-pitch))
+  (set-face-attribute 'org-verbatim nil :inherit '(shadow fixed-pitch))
+  (set-face-attribute 'org-special-keyword nil :inherit '(font-lock-comment-face fixed-pitch))
+  (set-face-attribute 'org-meta-line nil :inherit '(font-lock-comment-face fixed-pitch))
+  (set-face-attribute 'org-checkbox nil  :inherit 'fixed-pitch)
+  (set-face-attribute 'line-number nil :inherit 'fixed-pitch)
+  (set-face-attribute 'line-number-current-line nil :inherit 'fixed-pitch)
+
+  ;; Get rid of the background on column views
+  (set-face-attribute 'org-column nil :background nil)
+  (set-face-attribute 'org-column-title nil :background nil))
 
 (use-package evil-org
   :after org
   :hook ((org-mode . evil-org-mode)
          (org-agenda-mode . evil-org-mode)
-         (evil-org-mode .  (lambda () (evil-org-set-key-theme '(navigation todo insert textobjects additional)))))
+  (evil-org-mode . (lambda () (evil-org-set-key-theme '(navigation todo insert textobjects additional)))))
   :config
   (require 'evil-org-agenda)
   (evil-org-agenda-set-keys))
@@ -731,12 +772,6 @@
   "ot" '(org-todo-list :which-key "todos")
   "oc" '(org-capture t :which-key "capture")
   "ox" '(:ignore t :which-key "export"))
-
-(use-package org-bullets
-  :after org
-  :hook (org-mode . org-bullets-mode)
-  :custom
-  (org-bullets-bullet-list '("◉" "○" "●" "○" "●" "○" "●")))
 
 (use-package org-appear
   :hook (org-mode . org-appear-mode))
