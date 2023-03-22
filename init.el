@@ -231,7 +231,7 @@
     (add-hook 'after-make-frame-functions
               (lambda (frame)
                 (setq doom-modeline-icon t)
-                ;(setq dashboard-set-file-icons t)
+                (setq dashboard-set-file-icons t)
                 (with-selected-frame frame
                   (malachi/set-font-faces))))
     (malachi/set-font-faces))
@@ -259,11 +259,10 @@
   (global-ligature-mode 't))
 
 ;; Doom Emacs Code
-
 (defvar +bidi-mode-map (make-sparse-keymap)
   "Keymap for `+bidi-mode'.")
 
-(defvar +bidi-hebrew-font (font-spec :family "DejaVu Sans")
+(defvar +bidi-hebrew-font (font-spec :family "Heebo")
   "Overriding font for hebrew script.
    Must be a `font-spec', see `doom-font' for examples.
    WARNING: if you specify a size for this font it will hard-lock any usage of this
@@ -327,21 +326,23 @@
 
 (define-globalized-minor-mode +bidi-global-mode +bidi-mode +bidi-mode)
 
+(defun +bidi-set-fonts-h ()
+  (set-fontset-font t 'hebrew +bidi-hebrew-font)
+  (set-face-font '+bidi-hebrew-face +bidi-hebrew-font))
+
 (add-hook 'after-setting-font-hook
-  (defun +bidi-set-fonts-h ()
-    (set-fontset-font t 'hebrew +bidi-hebrew-font)
-    (set-face-font '+bidi-hebrew-face +bidi-hebrew-font)))
+  (+bidi-set-fonts-h))
 
-;; My Connfiguration Choices    
-(set-input-method 'british) ; Default
-
-(+bidi-global-mode 1)    
-(setq +bidi-hebrew-font (font-spec :family "FiraCode NF"))
+;; My Configuration Choice
+(set-input-method 'rfc1345) ; Default
+(+bidi-global-mode 1)
+(+bidi-set-fonts-h)
+;(set-fontset-font "fontset-default" 'hebrew (font-spec :family "Heebo"))
 
 (defhydra hydra-toggle-language (:timeout 4)
   "toggle input language"
   ("h" (set-input-method 'hebrew-full) "Hebrew" :exit t)
-  ("e" (set-input-method 'british) "English" :exit t))
+  ("e" (set-input-method 'rfc1345) "English" :exit t))
 
 (malachi/leader-keys
   "tl" '(hydra-toggle-language/body :which-key "toggle language"))
@@ -415,7 +416,7 @@
   :config (solaire-global-mode +1))
   
 (malachi/leader-keys
- "tt" '(counsel-load-theme :which-key "choose-theme"))
+ "tt" '(counsel-load-theme :which-key "choose theme"))
 
 (setq display-time-format "%k:%M %a %d/%m/%y"
       display-time-default-load-average nil)
@@ -429,6 +430,7 @@
   :hook (after-init . doom-modeline-init)
   :config (doom-modeline-mode)
   :custom
+  (doom-modeline-icon t)
   (doom-modeline-height 15)
   (doom-modeline-bar-width 6)
   (doom-modeline-lsp t)
@@ -437,8 +439,8 @@
   (doom-modeline-irc t)
   (doom-modeline-minor-modes t)
   (doom-modeline-persp-name nil)
-  (doom-modeline-buffer-file-name-style 'truncate-except-project)
-  (doom-modeline-major-mode-icon nil))
+  (doom-modeline-buffer-file-name-style 'truncate-except-project))
+  ;(doom-modeline-major-mode-icon nil))
 
 (defun centaur-tabs-buffer-groups ()
   "`centaur-tabs-buffer-groups' control buffers' group rules.
@@ -723,17 +725,17 @@
   (org-superstar-headline-bullets-list '("◉" "○" "●" "✸" "✦" "▷" "✿")))
 
 (with-eval-after-load 'org
-  ;; Set the size of various headings
-  (set-face-attribute 'org-document-title nil :font "Cantarell" :weight 'bold :height 1.3)
-  (dolist (face '((org-level-1 . 1.2)
-                  (org-level-2 . 1.1)
-                  (org-level-3 . 1.05)
-                  (org-level-4 . 1.0)
-                  (org-level-5 . 1.1)
-                  (org-level-6 . 1.1)
-                  (org-level-7 . 1.1)
-                  (org-level-8 . 1.1)))
-    (set-face-attribute (car face) nil :font "Cantarell" :weight 'medium :height (cdr face)))
+  ;; Increase the size of various headings
+  (set-face-attribute 'org-document-title nil :font "Cantarell" :weight 'bold :height 1.3 :foreground "#bfb3b6")
+
+  (set-face-attribute 'org-level-1 nil :font "Cantarell" :weight 'medium :height 1.2 :foreground "#59c2ff")
+  (set-face-attribute 'org-level-2 nil :font "Cantarell" :weight 'medium :height 1.1 :foreground "#d2a6ff")
+  (set-face-attribute 'org-level-3 nil :font "Cantarell" :weight 'medium :height 1.05 :foreground "#ffb454")
+  (set-face-attribute 'org-level-4 nil :font "Cantarell" :weight 'medium :height 1.0 :foreground "#f26d78")
+  (set-face-attribute 'org-level-5 nil :font "Cantarell" :weight 'medium :height 1.1 :foreground "#aad94c")
+  (set-face-attribute 'org-level-6 nil :font "Cantarell" :weight 'medium :height 1.1 :foreground "#e6b673")
+  (set-face-attribute 'org-level-7 nil :font "Cantarell" :weight 'medium :height 1.1 :foreground "#95e6cb")
+  (set-face-attribute 'org-level-8 nil :font "Cantarell" :weight 'medium :height 1.1 :foreground "#6c5980")
 
   ;; Make sure org-indent face is available
   (require 'org-indent)
@@ -755,6 +757,33 @@
   (set-face-attribute 'org-column nil :background nil)
   (set-face-attribute 'org-column-title nil :background nil))
 
+(defun malachi/org-mode-visual-fill ()
+  (setq visual-fill-column-width 100
+        visual-fill-column-center-text t)
+  (visual-fill-column-mode 1))
+
+(use-package visual-fill-column
+  :hook (org-mode . malachi/org-mode-visual-fill))
+
+(use-package org-appear
+  :hook (org-mode . org-appear-mode))
+
+(use-package org-roam
+  :custom
+  (org-roam-directory "~/.emacs.d/orgfiles/roam")
+  (org-roam-completions-everywhere t)
+  (org-roam-capture-templates
+    '(("d" "default" plain
+       "%?"
+       :if-new (file+head "%<%Y%m%d%H%M%S>-${slug}.org" "#+title: ${title}\n#+date: %U\n")
+       :unnarrowed t)
+      ("p" "project" plain
+       "\n* Goals\n\n%?\n\n* Tasks\n\n++ TODO Add initial tasks\n\n* Dates\n\n"
+       :if-new (file+head "%<%Y%m%d%H%M%S>-${slug}.org" "#+title: ${title}\n#+date: %U\n#+filetags: Project")
+       :unnarrowed t)))
+  :config
+  (org-roam-setup))
+
 (use-package evil-org
   :after org
   :hook ((org-mode . evil-org-mode)
@@ -771,18 +800,12 @@
   "oa" '(org-agenda :which-key "agenda")
   "ot" '(org-todo-list :which-key "todos")
   "oc" '(org-capture t :which-key "capture")
-  "ox" '(:ignore t :which-key "export"))
-
-(use-package org-appear
-  :hook (org-mode . org-appear-mode))
-
-(defun efs/org-mode-visual-fill ()
-  (setq visual-fill-column-width 100
-        visual-fill-column-center-text t)
-  (visual-fill-column-mode 1))
-
-(use-package visual-fill-column
-  :hook (org-mode . efs/org-mode-visual-fill))
+  "ox" '(:ignore t :which-key "export")
+  "or" '(:ignore t :which-key "roam")
+  "ort" '(org-roam-buffer-toggle t :which-key "toggle buffer")
+  "orf" '(org-roam-node-find t :which-key "find")
+  "ori" '(org-roam-node-insert t :which-key "insert")
+  "orc" '(completion-at-point t :which-key "completion"))
 
 (with-eval-after-load 'org
   (org-babel-do-load-languages
@@ -852,7 +875,7 @@
 (use-package git-gutter
   :diminish
   :hook ((prog-mode . git-gutter-mode)
-         (org-mode . git-gutter-mode)
+         ;(org-mode . git-gutter-mode)
          (text-mode . git-gutter-mode))
   :config
   (setq git-gutter:update-interval 2)
@@ -1172,22 +1195,27 @@
   :commands darkroom-mode
   :config
   (setq darkroom-text-scale-increase 0)
-  (darkroom-mode 0))
+  (darkroom-tentative-mode 0))
 
 (defun malachi/enter-focus-mode ()
   (interactive)
-  (darkroom-mode 1)
+  (darkroom-tentative-mode 1)
+  (centaur-tabs-mode 0)
   (display-line-numbers-mode 0))
 
 (defun malachi/leave-focus-mode ()
   (interactive)
-  (darkroom-mode 0)
-  (display-line-numbers-mode 1))
+  (darkroom-tentative-mode 0)
+  (centaur-tabs-mode 1)
+
+  (if (eq major-mode 'org-mode)
+      (display-line-numbers-mode 0)
+    (display-line-numbers-mode 1)))
 
 (defun malachi/toggle-focus-mode ()
   (interactive)
-  (if (symbol-value darkroom-mode)
-    (malachi/leave-focus-mode)
+  (if (symbol-value darkroom-tentative-mode)
+      (malachi/leave-focus-mode)
     (malachi/enter-focus-mode)))
 
 (malachi/leader-keys
