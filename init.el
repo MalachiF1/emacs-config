@@ -243,7 +243,7 @@
   ;; Enable traditional ligature support in eww-mode, if the `variable-pitch` face supports it
   (ligature-set-ligatures 'eww-mode '("ff" "fi" "ffi"))
   ;; Enable ligatures in programming modes
-  (ligature-set-ligatures 'prog-mode
+  (ligature-set-ligatures '(prog-mode org-mode LaTeX-mode)
                           '("www" "**" "***" "**/" "*>" "*/" "\\\\" "\\\\\\" "{-" "::"
                             ":::" ":=" "!!" "!=" "!==" "-}" "----" "-->" "->" "->>"
                              "-<" "-<<" "-~" "#{" "#[" "##" "###" "####" "#(" "#?" "#_"
@@ -262,7 +262,7 @@
 (defvar +bidi-mode-map (make-sparse-keymap)
   "Keymap for `+bidi-mode'.")
 
-(defvar +bidi-hebrew-font (font-spec :family "Heebo")
+(defvar +bidi-hebrew-font (font-spec :family "Heebo" :weight 'light)
   "Overriding font for hebrew script.
    Must be a `font-spec', see `doom-font' for examples.
    WARNING: if you specify a size for this font it will hard-lock any usage of this
@@ -335,8 +335,9 @@
 
 ;; My Configuration Choice
 (set-input-method 'rfc1345) ; Default
-(+bidi-global-mode 1)
+(setq-default +bidi-hebrew-font (font-spec :family "Heebo" :weight 'light)
 (+bidi-set-fonts-h)
+(+bidi-global-mode 1)
 ;(set-fontset-font "fontset-default" 'hebrew (font-spec :family "Heebo"))
 
 (defhydra hydra-toggle-language (:timeout 4)
@@ -650,6 +651,8 @@
   (auto-fill-mode 0)
   (visual-line-mode 1)
   (setq evil-auto-indent nil)
+  (prettify-symbols-mode)
+  (setq prettify-symbols-unprettify-at-point 'right-edge)
   (diminish org-indent-mode))
 
 (use-package org
@@ -735,7 +738,7 @@
   (set-face-attribute 'org-level-5 nil :font "Cantarell" :weight 'medium :height 1.1 :foreground "#aad94c")
   (set-face-attribute 'org-level-6 nil :font "Cantarell" :weight 'medium :height 1.1 :foreground "#e6b673")
   (set-face-attribute 'org-level-7 nil :font "Cantarell" :weight 'medium :height 1.1 :foreground "#95e6cb")
-  (set-face-attribute 'org-level-8 nil :font "Cantarell" :weight 'medium :height 1.1 :foreground "#6c5980")
+  (set-face-attribute 'org-level-8 nil :font "Cantarell" :weight 'medium :height 1.1 :foreground "#d95757")
 
   ;; Make sure org-indent face is available
   (require 'org-indent)
@@ -763,7 +766,7 @@
   (visual-fill-column-mode 1))
 
 (use-package visual-fill-column
-  :hook (org-mode . malachi/org-mode-visual-fill))
+ :hook (org-mode . malachi/org-mode-visual-fill))
 
 (use-package org-appear
   :hook (org-mode . org-appear-mode))
@@ -784,6 +787,22 @@
   :config
   (org-roam-setup))
 
+(setq org-highlight-latex-and-related '(native))
+(set-face-attribute 'org-latex-and-related nil :family "FiraCode NF" :weight 'normal :height 0.8 :foreground "#ff8f40")
+
+(with-eval-after-load 'ox-latex
+  (add-to-list 'org-latex-classes
+               '("org-plain-latex"
+                 "\\documentclass{article}
+                  [NO-DEFAULT-PACKAGES]
+                  [PACKAGES]
+                  [EXTRA]"
+                 ("\\section{%s}" . "\\section*{%s}")
+                 ("\\subsection{%s}" . "\\subsection*{%s}")
+                 ("\\subsubsection{%s}" . "\\subsubsection*{%s}")
+                 ("\\paragraph{%s}" . "\\paragraph*{%s}")
+                 ("\\subparagraph{%s}" . "\\subparagraph*{%s}"))))
+
 (use-package evil-org
   :after org
   :hook ((org-mode . evil-org-mode)
@@ -800,7 +819,7 @@
   "oa" '(org-agenda :which-key "agenda")
   "ot" '(org-todo-list :which-key "todos")
   "oc" '(org-capture t :which-key "capture")
-  "ox" '(:ignore t :which-key "export")
+  "ox" '(org-export-dispatch :which-key "export")
   "or" '(:ignore t :which-key "roam")
   "ort" '(org-roam-buffer-toggle t :which-key "toggle buffer")
   "orf" '(org-roam-node-find t :which-key "find")
@@ -811,7 +830,8 @@
   (org-babel-do-load-languages
     'org-babel-load-languages
     '((emacs-lisp . t)
-      (python . t))) 
+      (lua . t)
+      (python . t)))
 
   (push '("conf-unix" . conf-unix) org-src-lang-modes))
 
@@ -876,6 +896,7 @@
   :diminish
   :hook ((prog-mode . git-gutter-mode)
          ;(org-mode . git-gutter-mode)
+         (LaTeX-mode . git-gutter-mode)
          (text-mode . git-gutter-mode))
   :config
   (setq git-gutter:update-interval 2)
@@ -1038,6 +1059,32 @@
   :mode "\\.lua\\'"
   :hook (lua-mode . lsp-deferred))
 
+(use-package auctex
+  :defer t
+  :hook
+  (TeX-mode-hook . prettify-symbols-mode)
+  (LaTeX-mode .
+    (lambda ()
+      (push (list 'output-pdf "Zathura")
+             TeX-view-program-selection)))
+  :config
+  (setq prettify-symbols-unprettify-at-point 'right-edge)
+  (setq TeX-source-correlate-mode t)
+  (setq TeX-parse-self t)
+  (setq-default TeX-master nil)
+  (setq TeX-auto-save t))
+
+(with-eval-after-load 'auctex
+  ;; Increase the size of various headings
+  (set-face-attribute 'font-latex-slide-title-face nil :font "Cantarell" :weight 'bold :height 1.4)
+
+  (set-face-attribute 'font-latex-sectioning-0-face nil :weight 'medium :height 1.3)
+  (set-face-attribute 'font-latex-sectioning-1-face nil :weight 'medium :height 1.3)
+  (set-face-attribute 'font-latex-sectioning-2-face nil :weight 'medium :height 1.3)
+  (set-face-attribute 'font-latex-sectioning-3-face nil :weight 'medium :height 1.2)
+  (set-face-attribute 'font-latex-sectioning-4-face nil :weight 'medium :height 1.1)
+  (set-face-attribute 'font-latex-sectioning-5-face nil :weight 'medium :height 1.1))
+
 (use-package company
   :after lsp-mode
   :hook (lsp-mode . company-mode)
@@ -1099,9 +1146,9 @@
 
 ;;;; electric-pair
 (use-package elec-pair
-  :hook ((prog-mode org-mode) . electric-pair-mode)
+  :hook ((prog-mode org-mode LaTeX-mode) . electric-pair-mode)
   :config
-  (setq electric-pair-preserve-balance t
+  (setq electric-pair-preserve-balance nil ; for LaTeX
         electric-pair-skip-whitespace nil
         electric-pair-delete-adjacent-pairs t
         electric-pair-open-newline-between-pairs nil
@@ -1110,12 +1157,10 @@
   (setq electric-pair-pairs '( ; make electric-pair-mode work on more brackets.
                               (?\{ . ?\})
                               (?\[ . ?\])
-                              ))) 
+                              )))
 
 ;; Disable electric-pair-mode in minibuffer during Macro definition
-(defvar malachi/electic-pair-modes '(c-mode c++-mode lisp-mode emacs-lisp-mode org-mode))
-
-(defvar malachi/electic-pair-modes '(c-mode c++-mode lisp-mode emacs-lisp-mode org-mode))
+(defvar malachi/electic-pair-modes '(c-mode c++-mode lisp-mode emacs-lisp-mode org-mode LaTeX-mode))
 
 (defun malachi/inhibit-electric-pair-mode (char)
   (not (member major-mode malachi/electic-pair-modes)))
@@ -1159,10 +1204,11 @@
          (javascript-mode . origami-mode)
          (typescript-mode . origami-mode)
          (elisp-mode . origami-mode)
-         (python-mode . origami-mode)))
+         (python-mode . origami-mode)
+         (LaTeX-mode . origami-mode)))
 
 (use-package rainbow-delimiters
-  :hook (prog-mode . rainbow-delimiters-mode))
+  :hook ((prog-mode LaTex-mode) . rainbow-delimiters-mode))
 
 (use-package rainbow-mode
   :defer t
@@ -1220,6 +1266,9 @@
 
 (malachi/leader-keys
   "tf" '(malachi/toggle-focus-mode :which-key "focus mode"))
+
+(use-package pdf-tools
+  :defer t)
 
 (use-package term
   :commands term
