@@ -1,33 +1,10 @@
-; -*- lexical-binding: t; -*-
-
-;; The default is 800 kilobytes. Measured in bytes.
-;; If you experience freezing, decrease this.
-;; If you experience stuttering, increase this."
-(setq gc-cons-threshold (* 134217728)) ; 128mb
-
-(use-package gcmh
-  :init (gcmh-mode 1)
-  :config
-  (setq gcmh-idle-delay 'auto ; default is 15s
-        gcmh-auto-idle-delay-factor 10
-        gcmh-high-cons-threshold (* 16 1024 1024))) ; 16mb
-
-;; Profile emacs startup
-;(add-hook 'emacs-startup-hook
-;          (lambda ()
-;            (message "*** Eamcs loaded in %s with %d gargabe collections."
-;                     (format "%.2f seconds"
-;                             (float-time
-;                              (time-subtract after-init-time before-init-time)))
-;                     gcs-done)))
-
 ;; Initialize package sources
 (require 'package)
 
 (setq package-archives '(("melpa" . "https://melpa.org/packages/")
+                         ("melpa-stable" . "https://stable.melpa.org/packages/")
                          ("org" . "https://orgmode.org/elpa/")
                          ("elpa" . "https://elpa.gnu.org/packages/")))
-
 (package-initialize)
 (unless package-archive-contents
   (package-refresh-contents))
@@ -59,6 +36,40 @@
 (setq auto-save-file-name-transforms
       `((".*" ,(no-littering-expand-var-file-name "auto-save/") t)))
 
+;; Keep customization settings in a temporary file
+(setq custom-file
+      (if (boundp 'server-socket-dir)
+          (expand-file-name "custom.el" server-socket-dir)
+        (expand-file-name (format "emacs-custom-%s.el" (user-uid)) temporary-file-directory)))
+(load custom-file t)
+
+;; Store auto-save files in the var directory (default is directory of visited file)
+(setq auto-save-file-name-transforms
+      `((".*" ,(no-littering-expand-var-file-name "auto-save/") t)))
+
+; -*- lexical-binding: t; -*-
+
+;; The default is 800 kilobytes. Measured in bytes.
+;; If you experience freezing, decrease this.
+;; If you experience stuttering, increase this."
+(setq gc-cons-threshold (* 134217728)) ; 128mb
+
+(use-package gcmh
+  :init (gcmh-mode 1)
+  :config
+  (setq gcmh-idle-delay 'auto ; default is 15s
+        gcmh-auto-idle-delay-factor 10
+        gcmh-high-cons-threshold (* 16 1024 1024))) ; 16mb
+
+;; Profile emacs startup
+;(add-hook 'emacs-startup-hook
+;          (lambda ()
+;            (message "*** Eamcs loaded in %s with %d gargabe collections."
+;                     (format "%.2f seconds"
+;                             (float-time
+;                              (time-subtract after-init-time before-init-time)))
+;                     gcs-done)))
+
 ;; Make ESC quit prompts
 (global-set-key (kbd "<escape>") 'keyboard-escape-quit)
 
@@ -74,7 +85,7 @@
   (setq evil-want-C-d-scroll t)
   (setq evil-want-C-i-jump nil)
   (setq evil-respect-visual-line-mode t)
-  (setq evil-search-module 'evil-search) 
+  (setq evil-search-module 'evil-search)
   (setq evil-undo-system 'undo-tree)
   :config
   (evil-mode 1)
@@ -82,7 +93,7 @@
   ;(key-chord-define evil-insert-state-map "jk" 'evil-normal-state)
   ;; split windows
   (define-key evil-normal-state-map (kbd "C-S-v") 'evil-window-vsplit)
-  (define-key evil-normal-state-map (kbd "C-S-h") 'evil-window-split) 
+  (define-key evil-normal-state-map (kbd "C-S-h") 'evil-window-split)
   ;; move across splits
   (define-key evil-normal-state-map (kbd "C-h") 'evil-window-left)
   (define-key evil-normal-state-map (kbd "C-l") 'evil-window-right)
@@ -93,8 +104,28 @@
   (evil-set-initial-state 'dashboard-mode 'normal))
 
 (use-package evil-collection
+  :after evil
   :config
   (evil-collection-init))
+
+(use-package evil-goggles
+  :after evil
+  :ensure t
+  :config
+  (evil-goggles-mode)
+
+  (setq evil-goggles-blocking-duration 0.050)
+  (setq evil-goggles-async-duration 0.200)
+  ;; optionally use diff-mode's faces; as a result, deleted text
+  ;; will be highlighed with `diff-removed` face which is typically
+  ;; some red color (as defined by the color theme)
+  ;; other faces such as `diff-added` will be used for other actions
+  (evil-goggles-use-diff-faces))
+
+(use-package evil-surround
+  :after evil
+  :config
+  (global-evil-surround-mode 1))
 
 (use-package general
   :after evil
@@ -112,7 +143,6 @@
    "qb" '(kill-this-buffer :which-key "kill buffer")
    "w" '(save-buffer :which-key "save")
    "e" '(treemacs :which-key "treemacs")
-   "v" '(vterm :which-key "vterm")
    "t" '(:ignore t :which-key "toggle")))
 
 (general-define-key "C-M-j" 'counsel-switch-buffer)
@@ -169,7 +199,9 @@
                 vterm-mode-hook
                 term-mode-hook
                 shell-mode-hook
-                eshell-mode-hook))
+                eshell-mode-hook
+                dired-mode-hook
+                pdf-view-mode-hook))
   (add-hook mode (lambda() (display-line-numbers-mode 0))))
 
 (setq-default truncate-lines t) ; Disable line wraping
@@ -182,6 +214,7 @@
 (delete-selection-mode t)
 
 (setq-default
+  cua-mode t ; Hide the cursor in inactive windows.
   cursor-in-non-selected-windows nil ; Hide the cursor in inactive windows.
   default-directory "~/"
   tab-width 4
@@ -218,51 +251,12 @@
 (defvar malachi/default-font-size 100)
 (defvar malachi/default-variable-font-size 120)
 
-(defun malachi/set-font-faces ()
-  (set-face-attribute 'default nil :font "FiraCode NF" :height malachi/default-font-size)
-
-  ;; Set the fixed pitch face
-  (set-face-attribute 'fixed-pitch nil :font "FiraCode NF" :height malachi/default-font-size)
-
-  ;; Set the variable pitch face
-  (set-face-attribute 'variable-pitch nil :font "Cantarell" :height malachi/default-variable-font-size :weight 'regular))
-
-(if (daemonp)
-    (add-hook 'after-make-frame-functions
-              (lambda (frame)
-                (setq doom-modeline-icon t)
-                (setq dashboard-set-file-icons t)
-                (with-selected-frame frame
-                  (malachi/set-font-faces))))
-    (malachi/set-font-faces))
-
-(use-package ligature
-  :config
-  ;; Enable www ligature in every possible major mode
-  (ligature-set-ligatures 't '("www"))
-  ;; Enable traditional ligature support in eww-mode, if the `variable-pitch` face supports it
-  (ligature-set-ligatures 'eww-mode '("ff" "fi" "ffi"))
-  ;; Enable ligatures in programming modes
-  (ligature-set-ligatures '(prog-mode org-mode LaTeX-mode)
-                          '("www" "**" "***" "**/" "*>" "*/" "\\\\" "\\\\\\" "{-" "::"
-                            ":::" ":=" "!!" "!=" "!==" "-}" "----" "-->" "->" "->>"
-                             "-<" "-<<" "-~" "#{" "#[" "##" "###" "####" "#(" "#?" "#_"
-                             "#_(" ".-" ".=" ".." "..<" "..." "?=" "??" ";;" "/*" "/**"
-                             "/=" "/==" "/>" "//" "///" "&&" "||" "||=" "|=" "|>" "^=" "$>"
-                             "++" "+++" "+>" "=:=" "==" "===" "==>" "=>" "=>>" "<="
-                             "=<<" "=/=" ">-" ">=" ">=>" ">>" ">>-" ">>=" ">>>" "<*"
-                             "<*>" "<|" "<|>" "<$" "<$>" "<!--" "<-" "<--" "<->" "<+"
-                             "<+>" "<=" "<==" "<=>" "<=<" "<>" "<<" "<<-" "<<=" "<<<"
-                             "<~" "<~~" "</" "</>" "~@" "~-" "~>" "~~" "~~>" "%%"))
-  ;; Enables ligature checks globally in all buffers.
-  ;; You can aslo do per mode with `ligature-mode1
-  (global-ligature-mode 't))
-
 ;; Doom Emacs Code
+
 (defvar +bidi-mode-map (make-sparse-keymap)
   "Keymap for `+bidi-mode'.")
 
-(defvar +bidi-hebrew-font (font-spec :family "Heebo" :weight 'light)
+(defvar +bidi-hebrew-font (font-spec :family "Open Sans" :weight 'semi-light)
   "Overriding font for hebrew script.
    Must be a `font-spec', see `doom-font' for examples.
    WARNING: if you specify a size for this font it will hard-lock any usage of this
@@ -335,18 +329,67 @@
 
 ;; My Configuration Choice
 (set-input-method 'rfc1345) ; Default
-(setq-default +bidi-hebrew-font (font-spec :family "Heebo" :weight 'light)
-(+bidi-set-fonts-h)
 (+bidi-global-mode 1)
-;(set-fontset-font "fontset-default" 'hebrew (font-spec :family "Heebo"))
+;(+bidi-set-fonts-h)
+
+(defun malachi/change-language-to-hebrew ()
+  (interactive)
+  (set-input-method 'hebrew-new)
+  (ispell-change-dictionary "hebrew"))
+
+(defun malachi/change-language-to-english ()
+  (interactive)
+  (set-input-method 'rfc1345)
+  (ispell-change-dictionary "american"))
 
 (defhydra hydra-toggle-language (:timeout 4)
   "toggle input language"
-  ("h" (set-input-method 'hebrew-full) "Hebrew" :exit t)
-  ("e" (set-input-method 'rfc1345) "English" :exit t))
+  ("h" malachi/change-language-to-hebrew "Hebrew" :exit t)
+  ("e" malachi/change-language-to-english "English" :exit t))
 
 (malachi/leader-keys
-  "tl" '(hydra-toggle-language/body :which-key "toggle language"))
+  "tl" '(hydra-toggle-language/body :which-key "language"))
+
+(defun malachi/set-font-faces ()
+  (set-face-attribute 'default nil :font "FiraCode NF" :height malachi/default-font-size)
+
+  ;; Set the fixed pitch face
+  (set-face-attribute 'fixed-pitch nil :font "FiraCode NF" :height malachi/default-font-size)
+
+  ;; Set the variable pitch face
+  (set-face-attribute 'variable-pitch nil :font "Fira Sans" :height malachi/default-variable-font-size :weight 'regular)
+
+  (+bidi-set-fonts-h))
+
+  (if (daemonp)
+      (add-hook 'after-make-frame-functions
+                (lambda (frame)
+                  (setq doom-modeline-icon t)
+                  (with-selected-frame frame
+                    (malachi/set-font-faces))))
+      (malachi/set-font-faces))
+
+(use-package ligature
+  :config
+  ;; Enable www ligature in every possible major mode
+  (ligature-set-ligatures 't '("www"))
+  ;; Enable traditional ligature support in eww-mode, if the `variable-pitch` face supports it
+  (ligature-set-ligatures 'eww-mode '("ff" "fi" "ffi"))
+  ;; Enable ligatures in programming modes
+  (ligature-set-ligatures '(prog-mode org-mode LaTeX-mode)
+                          '("www" "**" "***" "**/" "*>" "*/" "\\\\" "\\\\\\" "{-" "::"
+                            ":::" ":=" "!!" "!=" "!==" "-}" "----" "-->" "->" "->>"
+                            "-<" "-<<" "-~" "#{" "#[" "##" "###" "####" "#(" "#?" "#_"
+                            "#_(" ".-" ".=" ".." "..<" "..." "?=" "??" ";;" "/*" "/**"
+                            "/=" "/==" "/>" "//" "///" "&&" "||" "||=" "|=" "|>" "^=" "$>"
+                            "++" "+++" "+>" "=:=" "==" "===" "==>" "=>" "=>>" "<="
+                            "=<<" "=/=" ">-" ">=" ">=>" ">>" ">>-" ">>=" ">>>" "<*"
+                            "<*>" "<|" "<|>" "<$" "<$>" "<!--" "<-" "<--" "<->" "<+"
+                            "<+>" "<=" "<==" "<=>" "<=<" "<>" "<<" "<<-" "<<=" "<<<"
+                            "<~" "<~~" "</" "</>" "~@" "~-" "~>" "~~" "~~>" "%%"))
+  ;; Enables ligature checks globally in all buffers.
+  ;; You can aslo do per mode with `ligature-mode1
+  (global-ligature-mode 't))
 
 (defun malachi/replace-unicode-font-mapping (block-name old-font new-font)
   (let* ((block-idx (cl-position-if
@@ -401,47 +444,68 @@
   :config
   (setq doom-themes-enable-bold t
 	  doom-themes-enable-italic t)
-  (load-theme 'doom-ayu-dark t)
-  ;(load-theme 'doom-tomorrow-night)
+
+  ;; (load-theme 'doom-ayu-dark t)
+  ;; Correct line number colors for ayu-dark
+  ;; (set-face-foreground 'line-number "#1e222a")
+  ;; (set-face-foreground 'line-number-current-line "#e6b673")
+
+  (load-theme 'doom-one t)
+  (set-face-foreground 'line-number-current-line "#908ac0")
+
+  ;; (load-theme 'doom-tomorrow-night t)
+
   (doom-themes-visual-bell-config)
   (doom-themes-neotree-config)
   (doom-themes-treemacs-config)
-  (doom-themes-org-config)
-  ;; Correct line number colors for ayu-dark
-  (set-face-foreground 'line-number "#1e222a")
-  (set-face-foreground 'line-number-current-line "#e6b673"))
-  
+  (doom-themes-org-config))
+
 (use-package solaire-mode
   :defer 0.1
   :custom (solaire-mode-remap-fringe t)
   :config (solaire-global-mode +1))
-  
+
 (malachi/leader-keys
- "tt" '(counsel-load-theme :which-key "choose theme"))
+ "tt" '(counsel-load-theme :which-key "theme"))
 
 (setq display-time-format "%k:%M %a %d/%m/%y"
       display-time-default-load-average nil)
 
 (use-package diminish)
 
+(use-package delight
+  :config
+  (delight '((c++-mode "" :major)
+             (lua-mode "󰢱" :major)
+             (org-mode "" :major)
+             (elisp-mode "" :major)
+             (vterm-mode "" :major)
+             (dashboard-mode "󰟒" :major)
+             (pdf-view-mode "" :major))))
+
 (use-package minions
   :hook (doom-modeline-mode . minions-mode))
 
 (use-package doom-modeline
-  :hook (after-init . doom-modeline-init)
-  :config (doom-modeline-mode)
+  ;; :after eshell
+  ;; :hook (after-init-hook . doom-modeline-init)
+  ;; Set default mode-line
+  :config
+  (doom-modeline-mode)
   :custom
   (doom-modeline-icon t)
   (doom-modeline-height 15)
   (doom-modeline-bar-width 6)
-  (doom-modeline-lsp t)
+  (doom-modeline-lsp nil)
   (doom-modeline-github nil)
   (doom-modeline-mu4e nil)
   (doom-modeline-irc t)
   (doom-modeline-minor-modes t)
   (doom-modeline-persp-name nil)
-  (doom-modeline-buffer-file-name-style 'truncate-except-project))
-  ;(doom-modeline-major-mode-icon nil))
+  (doom-modeline-buffer-file-name-style 'truncate-with-project)
+  (doom-modeline-buffer-encoding nil)
+  (doom-modeline-time nil)
+  (doom-modeline-env-version nil))
 
 (defun centaur-tabs-buffer-groups ()
   "`centaur-tabs-buffer-groups' control buffers' group rules.
@@ -458,13 +522,17 @@
                             magit-log-mode
                             magit-file-mode
                             magit-blob-mode
-                            magit-blame-mode
-                            )))
+                            magit-blame-mode)))
      "Emacs")
     ((derived-mode-p 'prog-mode)
      "Editing")
     ((derived-mode-p 'dired-mode)
      "Dired")
+    ((derived-mode-p '(eshell-mode
+                       term-mode
+                       shell-mode
+                       vterm-mode))
+     "Term")
     ((memq major-mode '(helpful-mode
                         help-mode))
      "Help")
@@ -510,8 +578,7 @@
 
      ;; Is not magit buffer.
      (and (string-prefix-p "magit" name)
-          (not (file-name-extension name)))
-     )))
+          (not (file-name-extension name))))))
   
 (use-package centaur-tabs
   :demand
@@ -547,21 +614,27 @@
   :config
   (setq dashboard-banner-logo-title "With Great Power Comes Great Responsibility!\n\n\n\n"
         dashboard-center-content t
-        dashboard-set-footer nil 
+        dashboard-set-footer nil
         dashboard-startup-banner "~/.emacs.d/banner.txt"
         dashboard-show-shortcuts nil
         dashboard-set-heading-icons t
         dashboard-set-file-icons t
         dashboard-projects-backend 'projectile
         dashboard-projects-switch-function 'counsel-projectile-switch-project-by-name
+
+        dashboard-set-navigator t
+
         dashboard-items '((recents . 10)
                           (bookmarks . 5)
                           (projects . 5)
                           (agenda . 5)))
+
   (dashboard-setup-startup-hook))
 
 ;; For frames created by emacsclient -c
-(setq initial-buffer-choice (lambda () (get-buffer-create "*dashboard*")))
+(setq initial-buffer-choice (lambda ()
+                              (dashboard-refresh-buffer)))
+                              ;;(get-buffer-create "*dashboard*")))
 
 (use-package ivy
   :diminish
@@ -645,6 +718,129 @@
   :config
   (global-page-break-lines-mode))
 
+;; (use-package svg-tag-mode
+;;   :defer t
+;;   :commands (svg-tag-mode global-svg-tag-mode)
+;;   :hook (org-mode . svg-tag-mode)
+;;   :config
+;;   (plist-put svg-lib-style-default :font-family "FiraCode NF")
+;;   (plist-put svg-lib-style-default :font-size 11.5)
+;;   ;; (plist-put svg-lib-style-default :alignment 0)
+;;   ;; (plist-put svg-lib-style-default :ascent 'bottom)
+
+;;   (defconst date-re "[0-9]\\{4\\}-[0-9]\\{2\\}-[0-9]\\{2\\}")
+;;   (defconst time-re "[0-9]\\{2\\}:[0-9]\\{2\\}")
+;;   (defconst day-re "[A-Za-z]\\{3\\}")
+;;   (defconst day-time-re (format "\\(%s\\)? ?\\(%s\\)?" day-re time-re))
+
+;;   (defun svg-progress-percent (value)
+;;     (svg-image (svg-lib-concat
+;;                 (svg-lib-progress-bar (/ (string-to-number value) 100.0) nil
+;;                                       :height 0.8 :background (doom-color 'bg)
+;;                                       :margin 0 :stroke 2 :radius 3 :padding 2 :width 11)
+;;                 (svg-lib-tag (concat value "%") nil
+;;                              :height 0.8 :background (doom-color 'bg)
+;;                              :stroke 0 :margin 0)) :stroke 0 :margin 0 :ascent 'center))
+
+;;   (defun svg-progress-count (value)
+;;     (let* ((seq (mapcar #'string-to-number (split-string value "/")))
+;;            (count (float (car seq)))
+;;            (total (float (cadr seq))))
+;;     (svg-image (svg-lib-concat
+;;                 (svg-lib-progress-bar (/ count total) nil
+;;                                       :backgroud (doom-color 'bg) :height 0.8
+;;                                       :margin 0 :stroke 2 :radius 3 :padding 2 :width 11)
+;;                 (svg-lib-tag value nil
+;;                              :backgroud (doom-color 'bg) :height 0.8
+;;                              :stroke 0 :margin 0)) :ascent 'center)))
+
+;;   ;;(set-face-attribute 'svg-tag-default-face nil :family "FiraCode NF")
+;;   (setq svg-tag-tags
+;;         `(
+
+;;           ;; Progress
+;;           ("\\(\\[[0-9]\\{1,3\\}%\\]\\)" . ((lambda (tag)
+;;                                               (svg-progress-percent (substring tag 1 -2)))))
+;;           ("\\(\\[[0-9]+/[0-9]+\\]\\)" . ((lambda (tag)
+;;                                               (svg-progress-count (substring tag 1 -1)))))
+
+;;           ;; Task priority e.g. [#A], [#B], or [#C]
+;;           ("\\[#A\\]" . ((lambda (tag) (svg-tag-make tag :face 'error :inverse t :height .85
+;;                                                      :beg 2 :end -1 :margin 0 :radius 10))))
+;;           ("\\[#B\\]" . ((lambda (tag) (svg-tag-make tag :face 'warning :inverse t :height .85
+;;                                                      :beg 2 :end -1 :margin 0 :radius 10))))
+;;           ("\\[#C\\]" . ((lambda (tag) (svg-tag-make tag :face 'org-todo :inverse t :height .85
+;;                                                      :beg 2 :end -1 :margin 0 :radius 10))))
+
+;;           ;; Org tags
+;;           (":\\([A-Za-z0-9]+\\)" . ((lambda (tag) (svg-tag-make tag))))
+;;           (":\\([A-Za-z0-9]+[ \-]\\)" . ((lambda (tag) tag)))
+
+
+;;           ;; TODO / DONE
+;;           ("TODO" . ((lambda (tag) (svg-tag-make tag :inverse t :height 1.0 :face 'org-todo :margin 0))))
+;;           ("DONE" . ((lambda (tag) (svg-tag-make tag :inverse t :height 1.0 :face 'org-done :margin 0))))
+
+
+;;           ;; Citation of the form [cite:@Knuth:1984]
+;;           ("\\(\\[cite:@[A-Za-z]+:\\)" . ((lambda (tag)
+;;                                             (svg-tag-make tag
+;;                                                           :inverse t
+;;                                                           :height 0.8
+;;                                                           :face 'org-cite
+;;                                                           :beg 7 :end -1
+;;                                                           :crop-right t))))
+;;           ("\\[cite:@[A-Za-z]+:\\([0-9]+\\]\\)" . ((lambda (tag)
+;;                                                   (svg-tag-make tag
+;;                                                                 :face 'org-cite
+;;                                                                 :end -1
+;;                                                                 :crop-left t))))
+
+
+;;           ;;Active date (with or without day name, with or without time)
+;;           (,(format "\\(<%s>\\)" date-re) .
+;;            ((lambda (tag)
+;;               (svg-tag-make tag :beg 1 :end -1 :margin 0 :height 0.8 :face 'org-date))))
+;;           (,(format "\\(<%s \\)%s>" date-re day-time-re) .
+;;            ((lambda (tag)
+;;               (svg-tag-make tag :beg 1 :inverse nil :crop-right t :margin 0 :height 0.8 :face 'org-date))))
+;;           (,(format "<%s \\(%s>\\)" date-re day-time-re) .
+;;            ((lambda (tag)
+;;               (svg-tag-make tag :end -1 :inverse t :crop-left t :margin 0 :height 0.8 :face 'org-date))))
+
+;;           ;; Inactive date  (with or without day name, with or without time)
+;;           (,(format "\\(\\[%s\\]\\)" date-re) .
+;;            ((lambda (tag)
+;;               (svg-tag-make tag :beg 1 :end -1 :margin 0 :height 0.8))))
+;;           (,(format "\\(\\[%s \\)%s\\]" date-re day-time-re) .
+;;            ((lambda (tag)
+;;               (svg-tag-make tag :beg 1 :inverse nil :crop-right t :margin 0 :height 0.8))))
+;;           (,(format "\\[%s \\(%s\\]\\)" date-re day-time-re) .
+;;            ((lambda (tag)
+;;               (svg-tag-make tag :end -1 :inverse t :crop-left t :margin 0 :height 0.8)))))))
+
+
+;; To do:         TODO DONE
+
+;; Tags:          :TAG1:TAG2:TAG3:
+
+;; Priorities:    [#A] [#B] [#C]
+
+;; Progress:      [1/3]
+;;                [42%]
+
+;; Active date:   <2021-12-24>
+;;                <2021-12-24 Fri>
+;;                <2021-12-24 14:00>
+;;                <2021-12-24 Fri 14:00>
+
+;; Inactive date: [2021-12-24]
+;;                [2021-12-24 Fri]
+;;                [2021-12-24 14:00]
+;;                [2021-12-24 Fri 14:00]
+
+;; Citation:      [cite:@Knuth:1984]
+
 (defun malachi/org-mode-setup ()
   (org-indent-mode)
   (variable-pitch-mode 1)
@@ -652,7 +848,7 @@
   (visual-line-mode 1)
   (setq evil-auto-indent nil)
   (prettify-symbols-mode)
-  (setq prettify-symbols-unprettify-at-point 'right-edge)
+  (setq-default prettify-symbols-unprettify-at-point 'right-edge)
   (diminish org-indent-mode))
 
 (use-package org
@@ -672,7 +868,9 @@
         org-return-follows-links t
         org-deadline-warning-days 30
         ;org-agenda-tags-column 75
-        org-capture-bookmark nil)
+        org-capture-bookmark nil
+        org-highlight-latex-and-related '(native)
+        org-start-with-inline-images t)
 
   (setq org-agenda-start-with-log-mode t)
   (setq org-agenda-start-on-weekday 0)
@@ -681,7 +879,7 @@
   (setq org-log-into-drawer t)
   (setq org-todo-keywords
             '((sequence "TODO(t)" "NEXT(n)" "|" "DONE(d!)")
-              (sequence "BACKLOG(b)" "PLAN(p)" "READY(r)" "ACTIVE(a)" "REVIEW(v)" "WAITING(w@/!)" "HOLD(h)" "|" "COMPLETED(c)" "CANCELLED(w@)")))
+              (sequence "BACKLOG(b)" "READY(r)" "ACTIVE(a)" "REVIEW(v)" "WAITING(w@/!)" "HOLD(h)" "|" "COMPLETED(c)" "CANCELLED(w@)")))
 
   (setq org-agenda-files '("~/.emacs.d/orgfiles/inbox.org"
                            "~/.emacs.d/orgfiles/projects.org"
@@ -725,20 +923,33 @@
   (org-superstar-item-bullet-alist '((42 . 10032)  ; -    ; ▸
                                      (43 . 8226)   ; +    ; •
                                      (45 . 9656))) ; *    ; ✰
-  (org-superstar-headline-bullets-list '("◉" "○" "●" "✸" "✦" "▷" "✿")))
+  (org-superstar-headline-bullets-list '("◉" "○" "●" "✦" "✸" "▷" "✿")))
 
 (with-eval-after-load 'org
-  ;; Increase the size of various headings
-  (set-face-attribute 'org-document-title nil :font "Cantarell" :weight 'bold :height 1.3 :foreground "#bfb3b6")
+  ;;;; For doom-ayu-dark theme
+  ;; (set-face-attribute 'org-document-title nil :font "Fira Sans" :weight 'bold :height 1.4  :foreground "#73b8ff" :underline '(:color "#d2a6ff" :style line))
 
-  (set-face-attribute 'org-level-1 nil :font "Cantarell" :weight 'medium :height 1.2 :foreground "#59c2ff")
-  (set-face-attribute 'org-level-2 nil :font "Cantarell" :weight 'medium :height 1.1 :foreground "#d2a6ff")
-  (set-face-attribute 'org-level-3 nil :font "Cantarell" :weight 'medium :height 1.05 :foreground "#ffb454")
-  (set-face-attribute 'org-level-4 nil :font "Cantarell" :weight 'medium :height 1.0 :foreground "#f26d78")
-  (set-face-attribute 'org-level-5 nil :font "Cantarell" :weight 'medium :height 1.1 :foreground "#aad94c")
-  (set-face-attribute 'org-level-6 nil :font "Cantarell" :weight 'medium :height 1.1 :foreground "#e6b673")
-  (set-face-attribute 'org-level-7 nil :font "Cantarell" :weight 'medium :height 1.1 :foreground "#95e6cb")
-  (set-face-attribute 'org-level-8 nil :font "Cantarell" :weight 'medium :height 1.1 :foreground "#d95757")
+  ;; (set-face-attribute 'org-level-1 nil :font "Fira Sans" :weight 'medium :height 1.25 :foreground "#59c2ff")
+  ;; (set-face-attribute 'org-level-2 nil :font "Fira Sans" :weight 'medium :height 1.15 :foreground "#d2a6ff")
+  ;; (set-face-attribute 'org-level-3 nil :font "Fira Sans" :weight 'medium :height 1.1 :foreground "#ffb454")
+  ;; (set-face-attribute 'org-level-4 nil :font "Fira Sans" :weight 'medium :height 1.05 :foreground "#aad94c")
+  ;; (set-face-attribute 'org-level-5 nil :font "Fira Sans" :weight 'medium :height 1.05 :foreground "#f26d78")
+  ;; (set-face-attribute 'org-level-6 nil :font "Fira Sans" :weight 'medium :height 1.05 :foreground "#e6b673")
+  ;; (set-face-attribute 'org-level-7 nil :font "Fira Sans" :weight 'medium :height 1.05 :foreground "#95e6cb")
+  ;; (set-face-attribute 'org-level-8 nil :font "Fira Sans" :weight 'medium :height 1.05 :foreground "#d95757")
+
+  ;;;; For doom-one theme
+  (set-face-attribute 'org-document-title nil :font "Fira Sans" :weight 'bold :height 1.4  :foreground "#4ea3de" :underline '(:color "#c276d8" :style line))
+  (set-face-attribute 'org-level-1 nil :font "Fira Sans" :weight 'medium :height 1.25)
+  (set-face-attribute 'org-level-2 nil :font "Fira Sans" :weight 'medium :height 1.15)
+  (set-face-attribute 'org-level-3 nil :font "Fira Sans" :weight 'medium :height 1.1)
+  (set-face-attribute 'org-level-4 nil :font "Fira Sans" :weight 'medium :height 1.05)
+  (set-face-attribute 'org-level-5 nil :font "Fira Sans" :weight 'medium :height 1.05)
+  (set-face-attribute 'org-level-6 nil :font "Fira Sans" :weight 'medium :height 1.05)
+  (set-face-attribute 'org-level-7 nil :font "Fira Sans" :weight 'medium :height 1.05)
+  (set-face-attribute 'org-level-8 nil :font "Fira Sans" :weight 'medium :height 1.05)
+
+  (set-face-attribute 'org-latex-and-related nil :family "FiraCode NF" :weight 'normal :height 0.8 :foreground "#ff8f40")
 
   ;; Make sure org-indent face is available
   (require 'org-indent)
@@ -772,6 +983,7 @@
   :hook (org-mode . org-appear-mode))
 
 (use-package org-roam
+  :defer t
   :custom
   (org-roam-directory "~/.emacs.d/orgfiles/roam")
   (org-roam-completions-everywhere t)
@@ -783,12 +995,42 @@
       ("p" "project" plain
        "\n* Goals\n\n%?\n\n* Tasks\n\n++ TODO Add initial tasks\n\n* Dates\n\n"
        :if-new (file+head "%<%Y%m%d%H%M%S>-${slug}.org" "#+title: ${title}\n#+date: %U\n#+filetags: Project")
+       :unnarrowed t)
+      ("r" "bibliography reference" plain
+       "%?"
+       :if-new (file+head "references/${citekey}.org" "#+title: ${title}\n")
        :unnarrowed t)))
   :config
+  (org-roam-db-autosync-mode t)
   (org-roam-setup))
 
-(setq org-highlight-latex-and-related '(native))
-(set-face-attribute 'org-latex-and-related nil :family "FiraCode NF" :weight 'normal :height 0.8 :foreground "#ff8f40")
+(use-package org-roam-ui
+  :after org-roam
+  :config
+  (setq org-roam-ui-sync-theme t
+        org-roam-ui-follow t
+        org-roam-ui-update-on-save t
+        org-roam-ui-open-on-start nil))
+
+(use-package org-ref
+  :after org
+  :config
+  (setq
+   bibtex-completion-bibliography '("~/.emacs.d/orgfiles/roam/bibtex.bib")
+   bibtex-completion-notes-path "~/.emacs.d/orgfiles/roam/references"
+   bibtex-completion-pdf-field "file"
+   bibtex-completion-pdf-open-function
+   (lambda (fpath)
+     (call-process "open" nil 0 nil fpath))))
+
+(use-package ivy-bibtex
+  :after org-ref)
+
+(use-package org-roam-bibtex
+  :after org-roam
+  :hook (org-roam-mode . org-roam-bibtex-mode)
+  :config
+  (require 'org-ref))
 
 (with-eval-after-load 'ox-latex
   (add-to-list 'org-latex-classes
@@ -802,6 +1044,13 @@
                  ("\\subsubsection{%s}" . "\\subsubsection*{%s}")
                  ("\\paragraph{%s}" . "\\paragraph*{%s}")
                  ("\\subparagraph{%s}" . "\\subparagraph*{%s}"))))
+
+  ;; (use-package org-fragtog
+  ;;   :hook
+  ;;   (org-mode . org-fragtog-mode)
+  ;;   :config
+  ;;   (setq org-startup-with-latex-preview t)
+  ;;   (plist-put org-format-latex-options :scale 1.5))
 
 (use-package evil-org
   :after org
@@ -818,13 +1067,16 @@
   "oil" '(org-insert-link :which-key "insert link")
   "oa" '(org-agenda :which-key "agenda")
   "ot" '(org-todo-list :which-key "todos")
-  "oc" '(org-capture t :which-key "capture")
+  "oc" '(org-capture :which-key "capture")
   "ox" '(org-export-dispatch :which-key "export")
   "or" '(:ignore t :which-key "roam")
-  "ort" '(org-roam-buffer-toggle t :which-key "toggle buffer")
-  "orf" '(org-roam-node-find t :which-key "find")
-  "ori" '(org-roam-node-insert t :which-key "insert")
-  "orc" '(completion-at-point t :which-key "completion"))
+  "ort" '(org-roam-buffer-toggle :which-key "toggle buffer")
+  "orf" '(org-roam-node-find :which-key "find")
+  "ori" '(org-roam-node-insert :which-key "insert node")
+  "orb" '(orb-insert-link :which-key "insert bibtex link")
+  "oru" '(org-roam-ui-open :which-key "ui")
+  "orc" '(org-roam-capture :which-key "capture")
+  "orp" '(completion-at-point :which-key "completion"))
 
 (with-eval-after-load 'org
   (org-babel-do-load-languages
@@ -946,20 +1198,23 @@
 (malachi/leader-keys
  "p" '(:ignore t :which-key "project")
  "pf" '(projectile-find-file :which-key "find file")
- "pF" '(consult-ripgrep :which-key "grep")
+ "pF" '(counsel-projectile-rg :which-key "grep")
  "ps" '(projectile-switch-project :which-key "switch project")
  "pc" '(projectile-compile-project :which-key "compile project")
  "pd" '(projectile-dired :which-key "projectile-dired"))
 
 (defun malachi/lsp-mode-setup ()
-  (setq lsp-headerline-breadcrum-segments '(path-to-project file symbols))
-  (lsp-headerline-breadcrumb-mode))
+  ;; (setq lsp-headerline-breadcrum-segments '(path-to-project file symbols))
+  ;; (lsp-headerline-breadcrumb-mode t)
+  )
 
 (use-package lsp-mode
   :commands (lsp lsp-deferred);
   :init
   (setq lsp-clangd-binary-path "/usr/bin/clangd")
   (setq lsp-warn-no-matched-clients nil)
+  (setq lsp-modeline-diagnostics-enable nil)
+  (setq lsp-headerline-breadcrumb-enable nil)
   ;(evil-define-key 'normal lsp-mode-map (kbd "SPC l") lsp-command-map)
   :hook (lsp-mode . malachi/lsp-mode-setup))
          ;(lsp-mode . lsp-enable-which-key-integration))
@@ -1011,7 +1266,9 @@
 
 (use-package flycheck
   :defer t
-  :hook (lsp-mode . flycheck-mode))
+  :hook (lsp-mode . flycheck-mode)
+  :config
+  (setq flycheck-indication-mode nil))
 
 (add-hook 'c-mode-hook 'lsp-deferred)
 (add-hook 'c++-mode-hook 'lsp-deferred)
@@ -1063,20 +1320,20 @@
   :defer t
   :hook
   (TeX-mode-hook . prettify-symbols-mode)
-  (LaTeX-mode .
-    (lambda ()
-      (push (list 'output-pdf "Zathura")
-             TeX-view-program-selection)))
+  (TeX-after-compilation-finished-functions . TeX-revert-document-buffer)
   :config
-  (setq prettify-symbols-unprettify-at-point 'right-edge)
-  (setq TeX-source-correlate-mode t)
-  (setq TeX-parse-self t)
-  (setq-default TeX-master nil)
-  (setq TeX-auto-save t))
+  (setq TeX-view-program-selection '((output-pdf "PDF Tools"))
+        TeX-view-program-list '(("PDF Tools" TeX-pdf-tools-sync-view))
+        TeX-source-correlate-start-server t
+        prettify-symbols-unprettify-at-point 'right-edge
+        TeX-source-correlate-mode t
+        TeX-parse-self t
+        setq TeX-auto-save t)
+  (setq-default TeX-master nil))
 
 (with-eval-after-load 'auctex
   ;; Increase the size of various headings
-  (set-face-attribute 'font-latex-slide-title-face nil :font "Cantarell" :weight 'bold :height 1.4)
+  (set-face-attribute 'font-latex-slide-title-face nil :font "Fira Sans" :weight 'bold :height 1.4)
 
   (set-face-attribute 'font-latex-sectioning-0-face nil :weight 'medium :height 1.3)
   (set-face-attribute 'font-latex-sectioning-1-face nil :weight 'medium :height 1.3)
@@ -1175,9 +1432,32 @@
                  (if (char-equal c ?<) t
                    (,electric-pair-inhibit-predicate c)))))
 
+(defun malachi/set-whitespace-mode-font-faces (&rest _)
+  (set-face-attribute 'whitespace-space nil :family "FiraCode NF" :background nil :foreground "#565b66" :height 0.8)
+  (set-face-attribute 'whitespace-newline nil :family "FiraCode NF" :background nil :foreground "#565b66" :height 1.1)
+  (set-face-attribute 'whitespace-tab nil :family "FiraCode NF" :background nil :foreground "#565b66" :height 1.0))
+
+(advice-add 'whitespace-mode :before #'malachi/set-whitespace-mode-font-faces)
+
+(setq-default whitespace-display-mappings
+              '((space-mark 32
+                           [183]
+                           [46])
+               (newline-mark 10
+                             [8201 9166 10]
+                             [36 10])
+               (tab-mark 9
+                         [9655 9] ; 9141 9251
+                         [187 9]
+                         [92 9])))
+
+(malachi/leader-keys
+ "tw" '(whitespace-mode :which-key "whitespace mode"))
+
 (use-package ws-butler
   :hook ((text-mode . ws-butler-mode)
-         (prog-mode . ws-butler-mode)))
+         (prog-mode . ws-butler-mode)
+         (org-mode . ws-butler-mode)))
 
 (use-package aggressive-indent
   :defer t
@@ -1208,13 +1488,26 @@
          (LaTeX-mode . origami-mode)))
 
 (use-package rainbow-delimiters
-  :hook ((prog-mode LaTex-mode) . rainbow-delimiters-mode))
+  :hook ((org-mode prog-mode LaTex-mode) . rainbow-delimiters-mode))
 
 (use-package rainbow-mode
   :defer t
   :hook ((prog-mode . rainbow-mode)
          (web-mode . rainbow-mode)
-         (css-mode . rainbow-mode)))
+         (org-mode . rainbow-mode)
+         (css-mode . rainbow-mode))
+  :config
+  ;; Changed this function so rainbow mode colorizes the foreground and not the background
+  (defun rainbow-colorize-match (color &optional match)
+    "Return a matched string propertized with a face whose
+  foreground is COLOR. The background is computed using
+  `rainbow-color-luminance'."
+    (let ((match (or match 0)))
+      (put-text-property
+       (match-beginning match) (match-end match)
+       'face `(;(:background ,(if (> 0.5 (rainbow-x-color-luminance color))
+               ;                  "white" "black"))
+               (:foreground ,color))))))
 
 (use-package tree-sitter-langs)
 
@@ -1226,19 +1519,8 @@
   :config
   (add-hook 'tree-sitter-after-on-hook #'tree-sitter-hl-mode))
 
-(use-package volatile-highlights
-  :commands volatile-highlights-mode
-  :hook (after-init . volatile-highlights-mode)
-  :config
-  ;; Supporting evil-mode.
-  (vhl/define-extension 'evil 'evil-paste-after 'evil-paste-before 'evil-paste-pop 'evil-move)
-  (vhl/install-extension 'evil)
-  ;; Supporting undo-tree.
-  (vhl/define-extension 'undo-tree 'undo-tree-yank 'undo-tree-move)
-  (vhl/install-extension 'undo-tree))
-
 (use-package darkroom
-  :commands darkroom-mode
+  :commands (darkroom-mode darkroom-tentative-mode)
   :config
   (setq darkroom-text-scale-increase 0)
   (darkroom-tentative-mode 0))
@@ -1268,7 +1550,29 @@
   "tf" '(malachi/toggle-focus-mode :which-key "focus mode"))
 
 (use-package pdf-tools
-  :defer t)
+  ;; :defer t
+  :config
+  (pdf-loader-install)
+  ;; open pdfs scaled to fit page
+  (setq-default pdf-view-display-size 'fit-width)
+  ;; automatically annotate highlights
+  (setq pdf-annot-activate-created-annotations t)
+  ;; fix blurry text
+  (setq pdf-view-use-scaling t)
+  (setq pdf-view-use-imagemagick t))
+
+(add-hook 'pdf-view-mode-hook
+          (lambda ()
+        (centaur-tabs-local-mode)
+        (set (make-local-variable 'evil-normal-state-cursor) (list nil))
+        (internal-show-cursor nil nil)))
+
+(setq ispell-dictionary "american")
+(setq ispell-program-name "aspell")
+(setq ispell-silently-savep t)
+
+(dolist (hook '(text-mode-hook org-mode-hook TeX-mode-hook))
+  (add-hook hook (lambda () (flyspell-mode 1))))
 
 (use-package term
   :commands term
@@ -1285,7 +1589,34 @@
   :config
   (setq term-prompt-regexp "^[^#$%>\n]*[#$%>] *")
   (setq vterm-max-scrollback 10000)
-  (addvice-add 'evil-collection-vterm-insert :before #'vterm-reset-cursor-point))
+  (advice-add 'evil-collection-vterm-insert :before #'vterm-reset-cursor-point))
+
+(use-package vterm-toggle
+  :after vterm
+  :config
+  (setq vterm-toggle-hide-method 'delete-window)
+  ;; show vterm buffer as side window at the bottom
+  (add-to-list 'display-buffer-alist
+               '((lambda (buffer-or-name _)
+                    (let ((buffer (get-buffer buffer-or-name)))
+                      (with-current-buffer buffer
+                        (or (equal major-mode 'vterm-mode)
+                            (string-prefix-p vterm-buffer-name (buffer-name buffer))))))
+                 (display-buffer-reuse-window display-buffer-in-side-window)
+                 (side . bottom)
+                 (dedicated . t)
+                 (reusable-frames . visible)
+                 (window-height . 0.3)))
+
+  ;; work with centaur-tabs
+  ;; (Defined shell, term, shell and vterm to same group in centaur-tabs)
+  (setq vterm-toggle--vterm-buffer-p-function 'vmacs-term-mode-p))
+
+(defun vmacs-term-mode-p(&optional args)
+  (derived-mode-p 'eshell-mode 'term-mode 'shell-mode 'vterm-mode))
+
+(malachi/leader-keys
+ "tv" '(vterm-toggle :which-key "vterm"))
 
 (defun malachi/configure-eshell ()
   ;; Save command history when commands are entered
@@ -1343,7 +1674,8 @@
     "l" 'dired-single-buffer))
 
 (malachi/leader-keys
-  "f" '(dired-jump :which-key "Dired"))
+  "d" '(dired-jump :which-key "Dired")
+  "f" '(find-file :which-key "find file"))
 
 (use-package dired-rainbow
     :defer 2
@@ -1388,3 +1720,42 @@
   :config
   (evil-collection-define-key 'normal 'dired-mode-map
     "H" 'dired-hide-dotfiles-mode))
+
+(use-package mu4e
+  :ensure nil
+  :load-path "/usr/local/share/emacs/site-lisp/mu4e"
+  ;:defer 20
+  :config
+  ;; Run mu4e in the background to sync mail periodically
+  (mu4e t)
+
+  ;; tell emacs where the mu binary is
+  (setq mu4e-mu-binary "/usr/local/bin/mu")
+
+  ;; this is set to 't' to avoid email syncing issues when using mbsync
+  (setq mu4e-change-filenames-when-moving t)
+
+  ;; refresh mail using isync every 10 minutes
+  (setq mu4e-update-interval (* 10 60)
+        mu4e-get-mail-command "mbsync -a"
+        mu4e-maildir "~/Mail")
+
+  (setq mu4e-drafts-folder "/[Gmail]/Drafts"
+        mu4e-sent-folder "/[Gmail]/Sent Mail"
+        mu4e-refile-folder "/[Gmail]/All Mail"
+        mu4e-trash-folder "/[Gmail]/Trash")
+
+  (setq mu4e-maildir-shortcuts
+        '((:maildir "/Inbox" :key ?i)
+          (:maildir "/[Gmail]/Sent Mail" :key ?s)
+          (:maildir "/[Gmail]/Trash" :key ?t)
+          (:maildir "/[Gmail]/Drafts" :key ?d)
+          (:maildir "/[Gmail]/All Mail" :key ?a)))
+
+  (require 'mu4e-contrib)
+  (setq mu4e-html2text-command 'mu4e-shr2text)
+  (setq mu4e-html2text-command "iconv -c -t utf-8 | pandoc -f html -t plain")
+  (add-to-list 'mu4e-view-actions '("ViewInBrowser" . mu4e-action-view-in-browser) t)
+  (setq shr-use-colors t)
+  (setq mu4e-confirm-quit nil)
+  (setq mu4e-headers-date-format "%d/%m/%y"))
