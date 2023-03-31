@@ -1,20 +1,25 @@
-;; Initialize package sources
-(require 'package)
+;; Bootstrap straight.el
+(defvar bootstrap-version)
+(let ((bootstrap-file
+      (expand-file-name "straight/repos/straight.el/bootstrap.el" user-emacs-directory))
+      (bootstrap-version 5))
+  (unless (file-exists-p bootstrap-file)
+    (with-current-buffer
+        (url-retrieve-synchronously
+        "https://raw.githubusercontent.com/raxod502/straight.el/develop/install.el"
+        'silent 'inhibit-cookies)
+      (goto-char (point-max))
+      (eval-print-last-sexp)))
+  (load bootstrap-file nil 'nomessage))
 
-(setq package-archives '(("melpa" . "https://melpa.org/packages/")
-                         ("melpa-stable" . "https://stable.melpa.org/packages/")
-                         ("org" . "https://orgmode.org/elpa/")
-                         ("elpa" . "https://elpa.gnu.org/packages/")))
-(package-initialize)
-(unless package-archive-contents
-  (package-refresh-contents))
+;; Always use straight to install on systems other than Linux
+(setq straight-use-package-by-default t)
 
-;; Initialize use-package on non-Linux platforms
-(unless (package-installed-p 'use-package)
-  (package-install 'use-package))
+;; Use straight.el for use-package expressions
+(straight-use-package 'use-package)
 
-(require 'use-package)
-(setq use-package-always-ensure t)
+;; Load the helper package for commands like `straight-x-clean-unused-repos'
+(require 'straight-x)
 
 (use-package auto-package-update
   :custom
@@ -110,7 +115,6 @@
 
 (use-package evil-goggles
   :after evil
-  :ensure t
   :config
   (evil-goggles-mode)
 
@@ -494,7 +498,7 @@
   (doom-modeline-mode)
   :custom
   (doom-modeline-icon t)
-  (doom-modeline-height 15)
+  (doom-modeline-height 20)
   (doom-modeline-bar-width 6)
   (doom-modeline-lsp nil)
   (doom-modeline-github nil)
@@ -1663,7 +1667,7 @@
   :config (setq all-the-icons-dired-monochrome nil))
 
 (use-package dired
-  :ensure nil
+  :straight nil
   :hook (dired-mode . dired-hide-details-mode)
   :commands (dired dired-jump)
   :custom
@@ -1722,7 +1726,7 @@
     "H" 'dired-hide-dotfiles-mode))
 
 (use-package mu4e
-  :ensure nil
+  :straight nil
   :load-path "/usr/local/share/emacs/site-lisp/mu4e"
   ;:defer 20
   :config
