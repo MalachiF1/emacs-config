@@ -1,0 +1,10 @@
+
+* Queries
+- [[mu4e:query:flag:unread AND NOT flag:trashed][Unread Mail]]
+- [[mu4e:query:date:today..now ][Today's Messages]]
+- [[mu4e:query:date:7d..now ][Last 7 Days]]
+- [[mu4e:query:flag:flagged][Flagged Emails]]
+- [[mu4e:query:prio:high][High Priority]]
+
+* Follow Up
+* Read Later

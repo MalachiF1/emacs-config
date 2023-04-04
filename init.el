@@ -1,3 +1,5 @@
+; -*- lexical-binding: t; -*-
+
 ;; Bootstrap straight.el
 (defvar bootstrap-version)
 (let ((bootstrap-file
@@ -21,18 +23,18 @@
 ;; Load the helper package for commands like `straight-x-clean-unused-repos'
 (require 'straight-x)
 
-(use-package auto-package-update
-  :custom
-  (auto-package-update-interval 7)
-  (auto-package-update-prompt-before-update t)
-  (auto-package-update-hide-result t)
-  :config
-  (auto-package-update-maybe)
-  (auto-package-update-at-time "17:30"))
+;; (use-package auto-package-update
+;;   :custom
+;;   (auto-package-update-interval 7)
+;;   (auto-package-update-prompt-before-update t)
+;;   (auto-package-update-hide-result t)
+;;   :config
+;;   (auto-package-update-maybe)
+;;   (auto-package-update-at-time "17:30"))
 
 ;; NOTE: If you want to move everything out of the ~/.emacs.d folder
 ;; reliably, set `user-emacs-directory` before loading no-littering!
-;(setq user-emacs-directory "~/.cache/emacs")
+;; (setq user-emacs-directory "~/.cache/emacs")
 
 (use-package no-littering)
 
@@ -51,8 +53,6 @@
 ;; Store auto-save files in the var directory (default is directory of visited file)
 (setq auto-save-file-name-transforms
       `((".*" ,(no-littering-expand-var-file-name "auto-save/") t)))
-
-; -*- lexical-binding: t; -*-
 
 ;; The default is 800 kilobytes. Measured in bytes.
 ;; If you experience freezing, decrease this.
@@ -105,6 +105,21 @@
   (define-key evil-normal-state-map (kbd "C-k") 'evil-window-up)
   (define-key evil-normal-state-map (kbd "C-j") 'evil-window-down)
 
+  ;; keep cursor at middle of screen when using certain movements
+  (defun malachi/scroll-to-center-advice (&rest args)
+    (evil-scroll-line-to-center (line-number-at-pos))
+    (beacon-blink))
+
+  (advice-add #'evil-goto-line :after #'malachi/scroll-to-center-advice)
+  (advice-add #'evil-scroll-up :after #'malachi/scroll-to-center-advice)
+  (advice-add #'evil-scroll-down :after #'malachi/scroll-to-center-advice)
+  (advice-add #'evil-goto-definition :after #'malachi/scroll-to-center-advice)
+
+  ;; bring cursor to begining/end of line when jumping to first/last line
+  (defun malachi/beginning-of-line-advice (count)
+    (evil-beginning-of-line))
+  (advice-add #'evil-goto-first-line :after #'malachi/beginning-of-line-advice)
+
   (evil-set-initial-state 'messages-buffer-mode 'normal)
   (evil-set-initial-state 'dashboard-mode 'normal))
 
@@ -147,6 +162,7 @@
    "qb" '(kill-this-buffer :which-key "kill buffer")
    "w" '(save-buffer :which-key "save")
    "e" '(treemacs :which-key "treemacs")
+   "h" '(helpful-symbol :which-key "help")
    "t" '(:ignore t :which-key "toggle")))
 
 (general-define-key "C-M-j" 'counsel-switch-buffer)
@@ -205,6 +221,10 @@
                 shell-mode-hook
                 eshell-mode-hook
                 dired-mode-hook
+                mu4e-view-mode-hook
+                mu4e-headers-mode-hook
+                mu4e-main-mode-hook
+                mu4e-compose-mode-hook
                 pdf-view-mode-hook))
   (add-hook mode (lambda() (display-line-numbers-mode 0))))
 
@@ -437,17 +457,17 @@
   :init (add-hook 'after-init-hook 'all-the-icons-ivy-setup)
   :config
   (setq all-the-icons-ivy-file-commands '(counsel-find-file
-					  counsel-file-jump
-					  counsel-recentf
-					  counsel-projectile-find-file
-					  counsel-projectile-find-dir)))
+                      counsel-file-jump
+                      counsel-recentf
+                      counsel-projectile-find-file
+                      counsel-projectile-find-dir)))
 
 (global-hl-line-mode t)
 
 (use-package doom-themes
   :config
   (setq doom-themes-enable-bold t
-	  doom-themes-enable-italic t)
+      doom-themes-enable-italic t)
 
   ;; (load-theme 'doom-ayu-dark t)
   ;; Correct line number colors for ayu-dark
@@ -486,6 +506,8 @@
              (vterm-mode "" :major)
              (dashboard-mode "󰟒" :major)
              (pdf-view-mode "" :major))))
+
+(advice-add 'c-update-modeline :override #'ignore) ;; Fix some issues
 
 (use-package minions
   :hook (doom-modeline-mode . minions-mode))
@@ -528,18 +550,23 @@
                             magit-blob-mode
                             magit-blame-mode)))
      "Emacs")
+
     ((derived-mode-p 'prog-mode)
      "Editing")
+
     ((derived-mode-p 'dired-mode)
      "Dired")
+
     ((derived-mode-p '(eshell-mode
                        term-mode
                        shell-mode
                        vterm-mode))
      "Term")
+
     ((memq major-mode '(helpful-mode
                         help-mode))
      "Help")
+
     ((memq major-mode '(org-mode
                         org-agenda-clockreport-mode
                         org-src-mode
@@ -551,6 +578,13 @@
                         org-agenda-log-mode
                         diary-mode))
      "OrgMode")
+
+    ((memq major-mode '(mu4e-view-mode
+                        mu4e-headers-mode
+                        mu4e-main-mode
+                        mu4e-compose-mode))
+     "mu4e")
+
     (t
      (centaur-tabs-get-group-name (current-buffer))))))
 
@@ -577,13 +611,22 @@
      (string-prefix-p "*Help" name)
      (string-prefix-p "*mybuf" name)
      (string-prefix-p "*vterm*" name)
+     (string-prefix-p "*vterm" name)
      (string-prefix-p "*terminal*" name)
      (string-prefix-p "*eshell*" name)
+     (string-prefix-p "*Agenda-Commands*" name)
+     (string-prefix-p "*Org Select*" name)
+     (string-prefix-p "*mu4e-main*" name)
+     (string-prefix-p "*mu4e-headers*" name)
+     (string-prefix-p "*mu4e-article*" name)
+     (string-prefix-p "*mu4e-draft*" name)
+     (string-prefix-p "*unsent mail*" name)
+     (string-prefix-p "OrgMimeMailBody" name)
 
      ;; Is not magit buffer.
      (and (string-prefix-p "magit" name)
           (not (file-name-extension name))))))
-  
+
 (use-package centaur-tabs
   :demand
   :hook
@@ -591,6 +634,7 @@
   (dashboard-mode . centaur-tabs-local-mode)
   (org-agenda-mode . centaur-tabs-local-mode)
   (calendar-mode . centaur-tabs-local-mode)
+  (vterm-mode . centaur-tabs-local-mode)
   :init
   (setq centaur-tabs-enable-key-bindings t)
   :config
@@ -612,6 +656,18 @@
     ("s-S-h" . centaur-tabs-move-current-tab-to-right)
     ("g t" . centaur-tabs-forward)
     ("g T" . centaur-tabs-backward)))
+
+(use-package beacon
+  :config
+  (beacon-mode 1)
+  (setq beacon-size 15
+        beacon-color 0.7
+        beacon-blink-duration 0.2
+        beacon-blink-delay 0.2
+        beacon-blink-when-window-scrolls t
+        beacon-blink-when-window-changes t
+        beacon-blink-when-point-moves-vertically nil
+        beacon-blink-when-point-moves-horizontally nil))
 
 (use-package dashboard
   :after all-the-icons
@@ -660,10 +716,31 @@
          (ivy-mode 1))
 
 (use-package ivy-rich
-  :after ivy
   :init
-  (ivy-rich-mode 1))
-
+  (ivy-rich-mode 1)
+  :after counsel
+  :config
+  (setq ivy-format-function #'ivy-format-function-line)
+    (setq ivy-rich-display-transformers-list
+          (plist-put ivy-rich-display-transformers-list
+                     'ivy-switch-buffer
+                     '(:columns
+                       ((ivy-rich-candidate (:width 40))
+                        ;; return the buffer indicators
+                        (ivy-rich-switch-buffer-indicators (:width 4 :face error :align right))
+                        ;; return the major mode info
+                        (ivy-rich-switch-buffer-major-mode (:width 12 :face warning))
+                        ;; return project name using `projectile'
+                        (ivy-rich-switch-buffer-project (:width 15 :face success))
+                        ;; return file path relative to project root
+                        ;; or `default-directory' if project is nil
+                        (ivy-rich-switch-buffer-path (:width (lambda (x) (ivy-rich-switch-buffer-shorten-path x (ivy-rich-minibuffer-width 0.3))))))
+                       :predicate
+                       (lambda (cand)
+                         (if-let ((buffer (get-buffer cand)))
+                             ;; Don't mess with EXWM buffers
+                             (with-current-buffer buffer
+                               (not (derived-mode-p 'exwm-mode)))))))))
 (use-package counsel
   :bind (("M-x" . counsel-M-x)
          ("C-x b" . counsel-ibuffer)
@@ -887,11 +964,25 @@
 
   (setq org-agenda-files '("~/.emacs.d/orgfiles/inbox.org"
                            "~/.emacs.d/orgfiles/projects.org"
-                           "~/.emacs.d/orgfiles/repeaters.org"))
+                           "~/.emacs.d/orgfiles/repeaters.org"
+                           "~/.emacs.d/orgfiles/mail.org"))
 
-  (setq org-capture-templates '(("t" "TODO" entry
-                                     (file+headline "~/.emacs.d/orgfiles/inbox.org" "Tasks")
-                                     "* TODO %?\n  %i\n  %a")))
+  (setq org-capture-templates
+    '(("t" "TODO" entry (file+headline "~/.emacs.d/orgfiles/inbox.org" "Tasks")
+                                       "* TODO %?\n  %i\n  %a")
+
+      ("m" "Email Workflow")
+
+      ("mf" "Follow Up" entry
+        (file+olp "~/.emacs.d/orgfiles/mail.org" "Follow Up")
+                 "* TODO Follow up with %:fromname on %a\nSCHEDULED:%t\nDEADLINE:%(org-insert-time-stamp (org-read-date nil t \"+2d\"))\n\n%i"
+       :immediate-finish t)
+
+      ("mr" "Read Later" entry
+        (file+olp "~/.emacs.d/orgfiles/mail.org" "Read Later")
+                  "* TODO Read %a from %:fromname\nSCHEDULED:%t\nDEADLINE: %(org-insert-time-stamp (org-read-date nil t \"+2d\"))\n\n%i"
+        :immediate-finish t)))
+
   (setq org-agenda-custom-commands
   '((" " "Agenda"
      ((agenda ""
@@ -943,7 +1034,7 @@
   ;; (set-face-attribute 'org-level-8 nil :font "Fira Sans" :weight 'medium :height 1.05 :foreground "#d95757")
 
   ;;;; For doom-one theme
-  (set-face-attribute 'org-document-title nil :font "Fira Sans" :weight 'bold :height 1.4  :foreground "#4ea3de" :underline '(:color "#c276d8" :style line))
+  (set-face-attribute 'org-document-title nil :font "Fira Sans" :weight 'bold :height 1.4  :foreground "#4ea3de")
   (set-face-attribute 'org-level-1 nil :font "Fira Sans" :weight 'medium :height 1.25)
   (set-face-attribute 'org-level-2 nil :font "Fira Sans" :weight 'medium :height 1.15)
   (set-face-attribute 'org-level-3 nil :font "Fira Sans" :weight 'medium :height 1.1)
@@ -1405,7 +1496,6 @@
 (use-package evil-nerd-commenter
   :bind ("M-/" . evilnc-comment-or-uncomment-lines))
 
-;;;; electric-pair
 (use-package elec-pair
   :hook ((prog-mode org-mode LaTeX-mode) . electric-pair-mode)
   :config
@@ -1524,7 +1614,7 @@
   (add-hook 'tree-sitter-after-on-hook #'tree-sitter-hl-mode))
 
 (use-package darkroom
-  :commands (darkroom-mode darkroom-tentative-mode)
+  :commands (darkroom-mode darkroom-tentative-mode malachi/toggle-focus-mode)
   :config
   (setq darkroom-text-scale-increase 0)
   (darkroom-tentative-mode 0))
@@ -1610,14 +1700,14 @@
                  (side . bottom)
                  (dedicated . t)
                  (reusable-frames . visible)
-                 (window-height . 0.3)))
+                 (window-height . 0.3))))
 
   ;; work with centaur-tabs
   ;; (Defined shell, term, shell and vterm to same group in centaur-tabs)
-  (setq vterm-toggle--vterm-buffer-p-function 'vmacs-term-mode-p))
+  ;; (setq vterm-toggle--vterm-buffer-p-function 'vmacs-term-mode-p))
 
-(defun vmacs-term-mode-p(&optional args)
-  (derived-mode-p 'eshell-mode 'term-mode 'shell-mode 'vterm-mode))
+  ;; (defun vmacs-term-mode-p(&optional args)
+  ;; (derived-mode-p 'eshell-mode 'term-mode 'shell-mode 'vterm-mode))
 
 (malachi/leader-keys
  "tv" '(vterm-toggle :which-key "vterm"))
@@ -1675,7 +1765,10 @@
   :config
   (evil-collection-define-key 'normal 'dired-mode-map
     "h" 'dired-single-up-directory
-    "l" 'dired-single-buffer))
+    "l" 'dired-single-buffer
+    "z" 'dired-do-compress-to
+    "f" 'dired-create-directory
+    "c" 'dired-create-empty-file))
 
 (malachi/leader-keys
   "d" '(dired-jump :which-key "Dired")
@@ -1725,13 +1818,123 @@
   (evil-collection-define-key 'normal 'dired-mode-map
     "H" 'dired-hide-dotfiles-mode))
 
+;; Make emacs prompts for the password when opening gpg files.
+(setq epg-pinentry-mode 'loopback)
+
+;; So other apps can retrieve passwords (Emacs daemon must be running).
+(defun malachi/lookup-password (&rest keys)
+  (let ((result (apply #'auth-source-search keys)))
+    (if result
+        (funcall (plist-get (car result) :secret))
+        nil)))
+
+;; Helper functions from Doom Dmacs
+(defun +mu4e--get-string-width (str)
+  "Return the width in pixels of a string in the current window's default font. If the font is mono-spaced, this will also be the width of all other printable characters."
+  (let ((window (selected-window))
+        (remapping face-remapping-alist))
+    (with-temp-buffer
+      (make-local-variable 'face-remapping-alist)
+      (setq face-remapping-alist remapping)
+      (set-window-buffer window (current-buffer))
+      (insert str)
+      (car (window-text-pixel-size)))))
+
+(cl-defun +mu4e-normalised-icon (name &key set color height v-adjust)
+  "Convert :icon declaration to icon"
+  (let* ((icon-set (intern (concat "all-the-icons-" (or set "faicon"))))
+         (v-adjust (or v-adjust 0.02))
+         (height (or height 0.8))
+         (icon (if color
+                   (apply icon-set `(,name :face ,(intern (concat "all-the-icons-" color)) :height ,height :v-adjust ,v-adjust))
+                 (apply icon-set `(,name  :height ,height :v-adjust ,v-adjust))))
+         (icon-width (+mu4e--get-string-width icon))
+         (space-width (+mu4e--get-string-width " "))
+         (space-factor (- 2 (/ (float icon-width) space-width))))
+    (concat (propertize " " 'display `(space . (:width ,space-factor))) icon)))
+
+;; Set up all the fancy icons
+;;;###autoload
+(defun +mu4e-initialise-icons ()
+  (setq mu4e-use-fancy-chars t
+        mu4e-headers-draft-mark      (cons "D" (+mu4e-normalised-icon "pencil"))
+        mu4e-headers-flagged-mark    (cons "F" (+mu4e-normalised-icon "flag"))
+        mu4e-headers-new-mark        (cons "N" (+mu4e-normalised-icon "sync" :set "material" :height 0.8 :v-adjust -0.10))
+        mu4e-headers-passed-mark     (cons "P" (+mu4e-normalised-icon "arrow-right"))
+        mu4e-headers-replied-mark    (cons "R" (+mu4e-normalised-icon "reply"))
+        mu4e-headers-seen-mark       (cons "S" (+mu4e-normalised-icon "eye" :height 0.6 :v-adjust 0.07 :color "dsilver"))
+        mu4e-headers-trashed-mark    (cons "T" (+mu4e-normalised-icon "trash"))
+        mu4e-headers-attach-mark     (cons "a" (+mu4e-normalised-icon "file-text-o" :color "silver"))
+        mu4e-headers-encrypted-mark  (cons "x" (+mu4e-normalised-icon "lock"))
+        mu4e-headers-signed-mark     (cons "s" (+mu4e-normalised-icon "certificate" :height 0.7 :color "dpurple"))
+        mu4e-headers-unread-mark     (cons "u" (+mu4e-normalised-icon "eye-slash" :v-adjust 0.05))
+        mu4e-headers-list-mark       (cons "l" (+mu4e-normalised-icon "sitemap" :set "faicon"))
+        mu4e-headers-personal-mark   (cons "p" (+mu4e-normalised-icon "user"))
+        mu4e-headers-calendar-mark   (cons "c" (+mu4e-normalised-icon "calendar"))))
+
+(defun +mu4e-colorize-str (str &optional unique herring)
+  "Apply a face from `+mu4e-header-colorized-faces' to STR. If HERRING is set, it will be used to determine the face instead of STR. Will try to make unique when non-nil UNIQUE, a quoted symbol for a alist of current strings and faces provided."
+  (unless herring
+    (setq herring str))
+   (put-text-property
+   0 (length str)
+   'face
+   (list
+    (if (not unique)
+        (+mu4e--str-color-face herring str)
+      (let ((unique-alist (eval unique)))
+        (unless (assoc herring unique-alist)
+          (if (> (length unique-alist) (length +mu4e-header-colorized-faces))
+             (push (cons herring (+mu4e--str-color-face herring)) unique-alist)
+            (let ((offset 0) color color?)
+              (while (not color)
+                (setq color? (+mu4e--str-color-face herring offset))
+                (if (not (rassoc color? unique-alist))
+                    (setq color color?)
+                  (setq offset (1+ offset))
+                  (when (> offset (length +mu4e-header-colorized-faces))
+                    (message "Warning: +mu4e-colorize-str was called with non-unique-alist UNIQUE-alist alist.")
+                    (setq color (+mu4e--str-color-face herring)))))
+              (push (cons herring color) unique-alist)))
+          (set unique unique-alist))
+        (cdr (assoc herring unique-alist))))
+    'default)
+   str)
+  str)
+
+(defun +mu4e--str-color-face (str &optional offset)
+  "Select a face from `+mu4e-header-colorized-faces' based on STR and any integer OFFSET."
+  (let* ((str-sum (apply #'+ (mapcar (lambda (c) (% c 3)) str)))
+         (color (nth (% (+ str-sum (if offset offset 0))
+                        (length +mu4e-header-colorized-faces))
+                     +mu4e-header-colorized-faces)))
+    color))
+
+  (defvar +mu4e-header-colorized-faces
+      '(all-the-icons-green
+        all-the-icons-lblue
+        all-the-icons-purple-alt
+        all-the-icons-blue-alt
+        all-the-icons-purple
+        all-the-icons-yellow)
+      "Faces to use when coloring folders and account stripes.")
+
 (use-package mu4e
   :straight nil
   :load-path "/usr/local/share/emacs/site-lisp/mu4e"
-  ;:defer 20
+  :commands (mu4e mu4e-compose-new mu4e-headers-search)
+  :bind (:map mu4e-compose-mode-map
+        ("M-o" . org-mime-edit-mail-in-org-mode)
+        ("M-h" . org-mime-htmlize))
+  :bind (:map mu4e-headers-mode-map
+        ("c" . org-capture))
   :config
   ;; Run mu4e in the background to sync mail periodically
   (mu4e t)
+
+  ;; Pull in org helpers
+  (require 'mu4e-org)
+  (require 'mu4e-contrib)
 
   ;; tell emacs where the mu binary is
   (setq mu4e-mu-binary "/usr/local/bin/mu")
@@ -1744,22 +1947,197 @@
         mu4e-get-mail-command "mbsync -a"
         mu4e-maildir "~/Mail")
 
-  (setq mu4e-drafts-folder "/[Gmail]/Drafts"
-        mu4e-sent-folder "/[Gmail]/Sent Mail"
-        mu4e-refile-folder "/[Gmail]/All Mail"
-        mu4e-trash-folder "/[Gmail]/Trash")
+  ;; Use Ivy for mu4e completions (maildir folders, etc)
+  (setq mu4e-completing-read-function #'ivy-completing-read)
+
+  ;; Configure the function to use for sending mail
+  (setq message-send-mail-function 'smtpmail-send-it)
+
+  ;; Only ask if a context hasn't been previously clicked
+  (setq mu4e-compose-context-policy 'ask-if-none)
+
+  ;; Make sure plain text mails flow correctly for recipients
+  (setq mu4e-compose-format-flowed t)
+
+  ;; Don't keep message buffers around
+  (setq mu4e-kill-buffer-on-exit t)
+
+  ;; Display options
+  (setq mu4e-view-show-images t)
+  (setq mu4e-view-show-addresses t)
+
+  (setq mu4e-contexts
+    (list
+      ;; Personal account
+      (make-mu4e-context
+        :name "Personal"
+        :match-func
+          (lambda (msg)
+            (when msg
+             (string-prefix-p "/Personal" (mu4e-message-field msg :maildir))))
+        :vars '((user-mail-address . "malachi.fraenkel@gmail.com")
+                (user-full-name . "Malachi Fraenkel")
+                ;; (user-compose-signature . "- Malachi Fraenkel")
+                (smtpmail-smtp-server . "smtp.gmail.com")
+                (smtpmail-smtp-service . 465)
+                (smtpmail-stream-type . ssl)
+                (mu4e-drafts-folder . "/Personal/[Gmail]/Drafts")
+                (mu4e-sent-folder . "/Personal/[Gmail]/Sent Mail")
+                (mu4e-refile-folder . "/Personal/[Gmail]/All Mail")
+                (mu4e-trash-folder . "/Personal/[Gmail]/Trash")))
+
+      ;; University account
+      (make-mu4e-context
+        :name "University"
+        :match-func
+          (lambda (msg)
+            (when msg
+             (string-prefix-p "/University" (mu4e-message-field msg :maildir))))
+        :vars '((user-mail-address . "malachi.fraenkel@mail.huji.ac.il")
+                (user-full-name . "Malachi Fraenkel")
+                ;; (user-compose-signature . "- Malachi Fraenkel")
+                (smtpmail-smtp-server . "smtp.gmail.com")
+                (smtpmail-smtp-service . 465)
+                (smtpmail-stream-type . ssl)
+                (mu4e-drafts-folder . "/University/[Gmail]/Drafts")
+                (mu4e-sent-folder . "/University/[Gmail]/Sent Mail")
+                (mu4e-refile-folder . "/University/[Gmail]/All Mail")
+                (mu4e-trash-folder . "/University/[Gmail]/Trash")))))
 
   (setq mu4e-maildir-shortcuts
-        '((:maildir "/Inbox" :key ?i)
-          (:maildir "/[Gmail]/Sent Mail" :key ?s)
-          (:maildir "/[Gmail]/Trash" :key ?t)
-          (:maildir "/[Gmail]/Drafts" :key ?d)
-          (:maildir "/[Gmail]/All Mail" :key ?a)))
+        '((:maildir "/Personal/Inbox" :key ?i)
+          (:maildir "/Personal/[Gmail]/Sent Mail" :key ?s)
+          (:maildir "/Personal/[Gmail]/Trash" :key ?t)
+          (:maildir "/Personal/[Gmail]/Drafts" :key ?d)
+          (:maildir "/Personal/[Gmail]/All Mail" :key ?a)))
 
-  (require 'mu4e-contrib)
-  (setq mu4e-html2text-command 'mu4e-shr2text)
-  (setq mu4e-html2text-command "iconv -c -t utf-8 | pandoc -f html -t plain")
-  (add-to-list 'mu4e-view-actions '("ViewInBrowser" . mu4e-action-view-in-browser) t)
+  ;; mu4e actions
+  (defun malachi/capture-mail-follow-up (msg)
+    (interactive)
+    (call-interactively 'org-store-link)
+    (org-capture nil "mf"))
+
+  (defun malachi/capture-mail-read-later (msg)
+    (interactive)
+    (call-interactively 'org-store-link)
+    (org-capture nil "mr"))
+
+  (add-to-list 'mu4e-headers-actions
+    '("follow up" . malachi/capture-mail-follow-up) t)
+  (add-to-list 'mu4e-view-actions
+    '("follow up" . malachi/capture-mail-follow-up) t)
+  (add-to-list 'mu4e-headers-actions
+    '("read later" . malachi/capture-mail-read-later) t)
+  (add-to-list 'mu4e-view-actions
+    '("read later" . malachi/capture-mail-read-later) t)
+
+  ;; Spellchecking
+  (add-hook 'mu4e-compose-mode-hook 'flyspell-mode)
+
+  ;; Better html view
+  (add-to-list 'mu4e-view-actions '("View in browser" . mu4e-action-view-in-browser))
+  (when (fboundp 'make-xwidget)
+    (add-to-list 'mu4e-view-actions '("xwidgets view" . mu4e-action-view-in-xwidget)))
   (setq shr-use-colors t)
+
+  ;; Don't ask when quiting
   (setq mu4e-confirm-quit nil)
-  (setq mu4e-headers-date-format "%d/%m/%y"))
+
+  ;; Better date/time format
+  (setq mu4e-headers-date-format "%d/%m/%y")
+  (setq mu4e-headers-time-format "%H:%M")
+
+  ;; Prefixes
+  (setq mu4e-headers-thread-single-orphan-prefix '("─>" . "─▶")
+        mu4e-headers-thread-orphan-prefix        '("┬>" . "┬▶ ")
+        mu4e-headers-thread-connection-prefix    '("│ " . "│ ")
+        mu4e-headers-thread-first-child-prefix   '("├>" . "├▶")
+        mu4e-headers-thread-child-prefix         '("├>" . "├▶")
+        mu4e-headers-thread-last-child-prefix    '("└>" . "╰▶"))
+
+  ;; Remove 'lists' column
+  (setq mu4e-headers-fields '((:human-date . 12)
+                              (:flags . 10)
+                              (:from-or-to . 30)
+                              (:subject)))
+  (setq mu4e-headers-precise-alignment t) ;; performance overhead
+
+  ;; Set the icons only when a graphical frame has been created
+  (if (display-graphic-p)
+      (+mu4e-initialise-icons)
+    ;; When it's the server, wait till the first graphical frame
+    (add-hook!
+     'server-after-make-frame-hook
+     (defun +mu4e-initialise-icons-hook ()
+       (when (display-graphic-p)
+         (+mu4e-initialise-icons)
+         (remove-hook 'server-after-make-frame-hook
+                      #'+mu4e-initialise-icons-hook))))))
+
+(setq malachi/mu4e-inbox-query
+      "(maildir:/Personal/Inbox OR maildir:/University/Inbox) AND flag:unread")
+
+(defun malachi/go-to-inbox ()
+  (interactive)
+  (mu4e-headers-search malachi/mu4e-inbox-query))
+
+(malachi/leader-keys
+ "m" '(:ignore t :which-key "mail")
+ "mm" '(mu4e :which-key "mu4e")
+ "mc" '(mu4e-compose-new :which-key "compose")
+ "mi" '(malachi/go-to-inbox :which-key "inbox")
+ "mu" '(mu4e-update-mail-and-index :which-key "update")
+ "mh" '(:ignore t :which-key "htmlize")
+ "mhb" '(org-mime-org-buffer-htmlize :which-key "buffer")
+ "mhs" '(org-mime-org-subtree-htmlize :which-key "subtree"))
+
+(use-package org-mime
+  :config
+  (setq org-mime-export-options '(:with-latex dvipng
+                                  :section-numbers nil
+                                  :with-author nil
+                                  :with-toc nil))
+
+  ;; Set background color for code blocks for code blocks
+  ;; (doom-one theme)
+  (add-hook 'org-mime-html-hook
+            (lambda ()
+              (org-mime-change-element-style
+                "pre" (format "color: %s; background-color: %s; padding: 0.5em;"
+                              "#bbc2cf" "#23272e"))))
+  (add-hook 'org-mime-html-hook
+            (lambda ()
+              (org-mime-change-element-style
+                "code" (format "color: %s; background-color: %s; padding: 0.2em;"
+                              "#92b662" "#282c34"))))
+
+(defun replace-regexp-entire-buffer (pattern replacement)
+  "Perform regular-expression replacement throughout buffer."
+  (interactive
+   (let ((args (query-replace-read-args "Replace" t)))
+     (setcdr (cdr args) nil)    ; remove third value returned from query---args
+     args))
+  (save-excursion
+    (goto-char (point-min))
+    (while (re-search-forward pattern nil t)
+      (replace-match replacement))))
+
+  ;; Correct direction when using hebrew/english
+  (add-hook 'org-mime-html-hook
+            (lambda ()
+              (replace-regexp-in-region "<h1" "<h1 dir=\"auto\"" (point-min) (point-max))
+              (replace-regexp-in-region "<h2" "<h2 dir=\"auto\"" (point-min) (point-max))
+              (replace-regexp-in-region "<h3" "<h3 dir=\"auto\"" (point-min) (point-max))
+              (replace-regexp-in-region "<h4" "<h4 dir=\"auto\"" (point-min) (point-max))
+              (replace-regexp-in-region "<h5" "<h5 dir=\"auto\"" (point-min) (point-max))
+              (replace-regexp-in-region "<h6" "<h6 dir=\"auto\"" (point-min) (point-max))
+              (replace-regexp-in-region "<p" "<p dir=\"auto\"" (point-min) (point-max))
+              (replace-regexp-in-region "<span" "<span dir=\"auto\"" (point-min) (point-max))
+              (replace-regexp-in-region "<ol" "<ol dir=\"auto\"" (point-min) (point-max))
+              (replace-regexp-in-region "<ul" "<ul dir=\"auto\"" (point-min) (point-max))))
+
+  ;; Automatically htmlize when sending mail
+  ;; (add-hook 'message-send-hook 'org-mime-htmlize)
+  ;; Alternatively if you just want to be reminded when you didn't use HTML
+    (add-hook 'message-send-hook 'org-mime-confirm-when-no-multipart)
+  )
